@@ -37,9 +37,12 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   background: radial-gradient(circle at top, #20284a 0, #05070d 50%);
   color: var(--text-main);
-  height: 100vh;
-  overflow: hidden;
+  /* permetti scroll verticale in tutte le modalità “grandi” */
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
+
 
 .kiosk-root {
   display: flex;
