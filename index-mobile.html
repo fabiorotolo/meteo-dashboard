@@ -587,6 +587,13 @@
   <div class="kiosk-root">
     <!-- TOP BAR -->
     <div class="top-row">
+      <!-- RIGA 1: OROLOGIO (span 2 colonne) -->
+      <div class="top-tile top-timer">
+        <div class="top-label-row"><span>Ora locale</span></div>
+        <div class="top-value" id="clock-time">--:--:--</div>
+      </div>
+      
+      <!-- RIGA 2 SX: PRESSIONE -->
       <div class="top-tile">
         <div class="top-label-row">
           <span>Pressione</span>
@@ -594,6 +601,8 @@
         </div>
         <div class="top-value" id="stat-press">-- hPa</div>
       </div>
+      
+      <!-- RIGA 2 DX: TEMPERATURA INT -->
       <div class="top-tile">
         <div class="top-label-row">
           <span>Temperatura</span>
@@ -601,23 +610,23 @@
         </div>
         <div class="top-value" id="stat-temp-int">-- °C</div>
       </div>
-      <div class="top-tile top-timer">
-        <div class="top-label-row"><span>Ora locale</span></div>
-        <div class="top-value" id="clock-time">--:--:--</div>
-      </div>
-      <div class="top-tile">
-        <div class="top-label-row">
-          <span>Temperatura</span>
-          <span class="top-label-unit">EXT</span>
-        </div>
-        <div class="top-value" id="stat-temp-ext">-- °C</div>
-      </div>
+      
+      <!-- RIGA 3 SX: UMIDITÀ EXT -->
       <div class="top-tile">
         <div class="top-label-row">
           <span>Umidità</span>
           <span class="top-label-unit">EXT</span>
         </div>
         <div class="top-value" id="stat-hum-ext">-- %</div>
+      </div>
+      
+      <!-- RIGA 3 DX: TEMPERATURA EXT -->
+      <div class="top-tile">
+        <div class="top-label-row">
+          <span>Temperatura</span>
+          <span class="top-label-unit">EXT</span>
+        </div>
+        <div class="top-value" id="stat-temp-ext">-- °C</div>
       </div>
     </div>
 
