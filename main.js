@@ -369,7 +369,7 @@ function startClock() {
 // ========================
 // GESTIONE RANGE BUTTONS
 // ========================
-let currentRange = "1w";
+let currentRange = "1d";
 
 function setupRangeButtons() {
   const btns = document.querySelectorAll(".btn-range");
@@ -435,7 +435,9 @@ async function loadAndRender() {
   try {
     status.textContent = "Caricamento dati da ThingSpeak…";
 
-    const maxResults = currentRange === "1y" ? 8000 : 2000;
+    const maxResults = currentRange === "1y" ? 8000 : 
+                       currentRange === "1m" ? 5000 : 
+                       currentRange === "1w" ? 3000 : 2000;
 
     const [intFeeds, extFeeds] = await Promise.all([
       fetchChannelFeeds(INTERNAL_CHANNEL_ID, INTERNAL_READ_KEY, maxResults),
@@ -457,9 +459,15 @@ async function loadAndRender() {
       const pressInt = parseFloat(lastInt["field" + INTERNAL_FIELDS.press]);
       const cpu = parseFloat(lastInt["field" + INTERNAL_FIELDS.cpu]);
 
-      if (!isNaN(tempInt)) document.getElementById("stat-temp-int").textContent = tempInt.toFixed(2) + " °C";
+      if (!isNaN(tempInt)) {
+        const el = document.getElementById("stat-temp-int");
+        el.innerHTML = tempInt.toFixed(2) + ' <span class="unit-small">°C</span>';
+      }
       if (!isNaN(humInt)) document.getElementById("debug-rh").textContent = humInt.toFixed(1) + " %";
-      if (!isNaN(pressInt)) document.getElementById("stat-press").textContent = pressInt.toFixed(1) + " hPa";
+      if (!isNaN(pressInt)) {
+        const el = document.getElementById("stat-press");
+        el.innerHTML = pressInt.toFixed(1) + ' <span class="unit-small">hPa</span>';
+      }
       if (!isNaN(cpu)) document.getElementById("stat-temp-cpu").textContent = cpu.toFixed(1) + " °C";
 
       document.getElementById("stat-last-ts").textContent = fmtDateTime(lastTime);
@@ -470,8 +478,14 @@ async function loadAndRender() {
       const tempExt = parseFloat(lastExt["field" + EXTERNAL_FIELDS.temp]);
       const humExt = parseFloat(lastExt["field" + EXTERNAL_FIELDS.hum]);
 
-      if (!isNaN(tempExt)) document.getElementById("stat-temp-ext").textContent = tempExt.toFixed(2) + " °C";
-      if (!isNaN(humExt)) document.getElementById("stat-hum-ext").textContent = humExt.toFixed(1) + " %";
+      if (!isNaN(tempExt)) {
+        const el = document.getElementById("stat-temp-ext");
+        el.innerHTML = tempExt.toFixed(2) + ' <span class="unit-small">°C</span>';
+      }
+      if (!isNaN(humExt)) {
+        const el = document.getElementById("stat-hum-ext");
+        el.innerHTML = humExt.toFixed(1) + ' <span class="unit-small">%</span>';
+      }
     }
 
     // === GRAFICO PRESSIONE (solo canale interno) ===
