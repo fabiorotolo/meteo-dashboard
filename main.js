@@ -1114,3 +1114,12 @@ window.addEventListener("load", () => {
   // aggiorna dati astronomici ogni 10 minuti
   setInterval(updateAstroData, 600000);
 });
+
+// --- Ricarica pagina quando il device ruota --- //
+window.addEventListener("orientationchange", () => {
+  document.body.style.opacity = "0";
+  setTimeout(() => {
+    location.reload();
+  }, 200);
+});
+
