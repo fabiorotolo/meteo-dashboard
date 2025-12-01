@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>Meteo – Tabella dati</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    :root {
+      --bg-main: #1d1f26;
+      --bg-panel: #262932;
+      --bg-panel-soft: #2c2f39;
+      --border-panel: #3a3d4a;
+      --accent: #3d7cff;
+      --accent-soft: #2f4f80;
+      --text-main: #f4f4f7;
+      --text-soft: #c5c7d1;
+      --text-muted: #9396a3;
+      --danger: #ff5c5c;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #20284a 0, #05070d 50%);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 16px;
+    }
+
+    .page {
+      width: 100%;
+      max-width: 1100px;
+      background: var(--bg-main);
+      border-radius: 12px;
+      border: 1px solid #242b3d;
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.6),
+        0 8px 20px rgba(0, 0, 0, 0.8);
+      padding: 12px 16px 16px;
+    }
+
+    .page-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .title-block h1 {
+      font-size: 20px;
+      margin: 0;
+    }
+
+    .title-block span {
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    .range-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .btn-range {
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid #2b3144;
+      background: #141927;
+      color: var(--text-soft);
+      cursor: pointer;
+      font-size: 11px;
+      min-width: 36px;
+      text-align: center;
+      transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .btn-range.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #ffffff;
+      box-shadow: 0 0 6px rgba(45, 140, 255, 0.9);
+    }
+
+    .info-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 16px;
+      font-size: 12px;
+      color: var(--text-soft);
+      margin-bottom: 10px;
+      border-top: 1px solid var(--border-panel);
+      border-bottom: 1px solid var(--border-panel);
+      padding: 6px 0;
+    }
+
+    .info-bar span strong {
+      color: var(--text-main);
+      font-family: "JetBrains Mono", Menlo, monospace;
+    }
+
+    .status {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .status.error {
+      color: var(--danger);
+    }
+
+    .table-wrapper {
+      max-height: 65vh;
+      overflow: auto;
+      border-radius: 10px;
+      border: 1px solid var(--border-panel);
+      background: var(--bg-panel);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      min-width: 700px;
+    }
+
+    thead {
+      position: sticky;
+      top: 0;
+      background: #2b2f3a;
+      z-index: 1;
+    }
+
+    th, td {
+      padding: 6px 8px;
+      text-align: right;
+      border-bottom: 1px solid #343949;
+      white-space: nowrap;
+    }
+
+    th:first-child,
+    td:first-child {
+      text-align: left;
+    }
+
+    th {
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-soft);
+    }
+
+    tbody tr:nth-child(even) {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    tbody tr:hover {
+      background: rgba(61, 124, 255, 0.13);
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .tag-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+
+    @media (max-width: 700px) {
+      .page {
+        padding: 10px;
+      }
+      .title-block h1 {
+        font-size: 18px;
+      }
+      table {
+        font-size: 11px;
+      }
+      th, td {
+        padding: 5px 6px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div class="title-block">
+        <h1>Meteo – Dati grezzi</h1>
+        <span>Tabella dati da ThingSpeak (INT + EXT) con filtro temporale</span>
+      </div>
+      <div class="range-buttons">
+        <button class="btn-range" data-range="1h">1h</button>
+        <button class="btn-range" data-range="3h">3h</button>
+        <button class="btn-range" data-range="6h">6h</button>
+        <button class="btn-range" data-range="12h">12h</button>
+        <button class="btn-range" data-range="1d">1d</button>
+        <button class="btn-range" data-range="1w">1w</button>
+        <button class="btn-range" data-range="1m">1m</button>
+        <button class="btn-range" data-range="1y">1y</button>
+      </div>
+    </div>
+
+    <div class="info-bar">
+      <span>Ultimo dato: <strong id="info-last-ts">--</strong></span>
+      <span>Punti INT: <strong id="info-int-count">0</strong></span>
+      <span>Punti EXT: <strong id="info-ext-count">0</strong></span>
+      <span>Intervallo: <strong id="info-range">--</strong></span>
+      <span class="tag">
+        <span class="tag-dot"></span>
+        <span id="info-source">ThingSpeak live</span>
+      </span>
+    </div>
+
+    <div id="status" class="status">Seleziona un intervallo per caricare i dati…</div>
+
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Temp INT (°C)</th>
+            <th>UR INT (%)</th>
+            <th>Press (hPa)</th>
+            <th>CPU (°C)</th>
+            <th>Temp EXT (°C)</th>
+            <th>UR EXT (%)</th>
+          </tr>
+        </thead>
+        <tbody id="data-body">
+          <!-- righe inserite via JS -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    // ========================
+    // CONFIGURAZIONE THINGSPEAK
+    // (copiata dal tuo main.js)
+    // ========================
+
+    const INTERNAL_CHANNEL_ID = 3152991;               // meteo_data
+    const INTERNAL_READ_KEY   = "3I7MYYDZS4IKL3YJ";
+    const INTERNAL_FIELDS = {
+      temp: 4,   // temp interna
+      hum: 2,    // umidità interna
+      press: 3,  // pressione
+      cpu: 5     // temp CPU
+    };
+
+    const EXTERNAL_CHANNEL_ID = 3181129;               // ESP32_01
+    const EXTERNAL_READ_KEY   = "7JYH3JOONPFPNQNE";
+    const EXTERNAL_FIELDS = {
+      hum: 1,    // umidità esterna
+      temp: 2    // temp esterna
+    };
+
+    const RANGE_HOURS = {
+      "1h": 1,
+      "3h": 3,
+      "6h": 6,
+      "12h": 12,
+      "1d": 24,
+      "1w": 24 * 7,
+      "1m": 24 * 30,
+      "1y": 24 * 365
+    };
+
+    let currentRange = "1d";
+
+    // ========================
+    // UTILITÀ
+    // ========================
+
+    function fmtTime(date) {
+      const h = String(date.getHours()).padStart(2, "0");
+      const m = String(date.getMinutes()).padStart(2, "0");
+      const s = String(date.getSeconds()).padStart(2, "0");
+      return `${h}:${m}:${s}`;
+    }
+
+    function fmtDateTime(date) {
+      const d = String(date.getDate()).padStart(2, "0");
+      const mo = String(date.getMonth() + 1).padStart(2, "0");
+      const y = date.getFullYear();
+      return `${d}/${mo}/${y} ${fmtTime(date)}`;
+    }
+
+    async function fetchChannelFeeds(channelId, apiKey, maxResults = 2000) {
+      const url =
+        `https://api.thingspeak.com/channels/${channelId}/feeds.json` +
+        `?api_key=${apiKey}&results=${maxResults}`;
+
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error("Errore HTTP " + res.status);
+      }
+      const data = await res.json();
+      return (data.feeds || []).map(f => ({
+        time: new Date(f.created_at),
+        raw: f
+      }));
+    }
+
+    function filterByRange(feeds, hours) {
+      if (!feeds.length) return [];
+      const now = new Date();
+      const cutoff = new Date(now.getTime() - hours * 3600 * 1000);
+      return feeds.filter(f => f.time >= cutoff);
+    }
+
+    // ========================
+    // RENDER TABELLA
+    // ========================
+
+    async function loadAndRenderTable() {
+      const statusEl = document.getElementById("status");
+      const bodyEl = document.getElementById("data-body");
+      const infoLastTs = document.getElementById("info-last-ts");
+      const infoIntCount = document.getElementById("info-int-count");
+      const infoExtCount = document.getElementById("info-ext-count");
+      const infoRange = document.getElementById("info-range");
+
+      statusEl.textContent = "Caricamento dati da ThingSpeak…";
+      statusEl.classList.remove("error");
+      bodyEl.innerHTML = "";
+
+      try {
+        const hours = RANGE_HOURS[currentRange] || 24;
+
+        // più risultati per intervalli lunghi (come nel main.js)
+        const maxResults =
+          currentRange === "1y" ? 8000 :
+          currentRange === "1m" ? 5000 :
+          currentRange === "1w" ? 3000 : 2000;
+
+        const [intFeeds, extFeeds] = await Promise.all([
+          fetchChannelFeeds(INTERNAL_CHANNEL_ID, INTERNAL_READ_KEY, maxResults),
+          fetchChannelFeeds(EXTERNAL_CHANNEL_ID, EXTERNAL_READ_KEY, maxResults)
+        ]);
+
+        const intFiltered = filterByRange(intFeeds, hours);
+        const extFiltered = filterByRange(extFeeds, hours);
+
+        infoIntCount.textContent = intFiltered.length;
+        infoExtCount.textContent = extFiltered.length;
+        infoRange.textContent = currentRange;
+
+        // mappa esterna per timestamp -> valori EXT
+        const extMap = new Map();
+        extFiltered.forEach(f => {
+          const t = f.time.getTime();
+          const raw = f.raw;
+          const tExt = parseFloat(raw["field" + EXTERNAL_FIELDS.temp]);
+          const hExt = parseFloat(raw["field" + EXTERNAL_FIELDS.hum]);
+          extMap.set(t, {
+            tempExt: Number.isFinite(tExt) ? tExt : null,
+            humExt:  Number.isFinite(hExt) ? hExt : null
+          });
+        });
+
+        // ordina i dati interni per tempo e crea righe
+        const rows = [];
+        intFiltered.sort((a, b) => a.time - b.time).forEach(f => {
+          const t = f.time;
+          const raw = f.raw;
+
+          const tempInt = parseFloat(raw["field" + INTERNAL_FIELDS.temp]);
+          const humInt  = parseFloat(raw["field" + INTERNAL_FIELDS.hum]);
+          const press   = parseFloat(raw["field" + INTERNAL_FIELDS.press]);
+          const cpu     = parseFloat(raw["field" + INTERNAL_FIELDS.cpu]);
+
+          // cerco il punto EXT con timestamp più vicino (entro 5 minuti)
+          let nearestExt = { tempExt: null, humExt: null };
+          let minDelta = Infinity;
+          extFiltered.forEach(e => {
+            const dt = Math.abs(e.time - t);
+            if (dt < minDelta && dt <= 5 * 60 * 1000) { // 5 minuti
+              minDelta = dt;
+              const r = e.raw;
+              const te = parseFloat(r["field" + EXTERNAL_FIELDS.temp]);
+              const he = parseFloat(r["field" + EXTERNAL_FIELDS.hum]);
+              nearestExt = {
+                tempExt: Number.isFinite(te) ? te : null,
+                humExt:  Number.isFinite(he) ? he : null
+              };
+            }
+          });
+
+          rows.push({
+            time: t,
+            tempInt: Number.isFinite(tempInt) ? tempInt : null,
+            humInt:  Number.isFinite(humInt)  ? humInt  : null,
+            press:   Number.isFinite(press)   ? press   : null,
+            cpu:     Number.isFinite(cpu)     ? cpu     : null,
+            tempExt: nearestExt.tempExt,
+            humExt:  nearestExt.humExt
+          });
+        });
+
+        // aggiorna "ultimo dato"
+        if (rows.length) {
+          infoLastTs.textContent = fmtDateTime(rows[rows.length - 1].time);
+        } else {
+          infoLastTs.textContent = "--";
+        }
+
+        // popola la tabella
+        const frag = document.createDocumentFragment();
+        rows.reverse().forEach(r => {  // reverse: prima le righe più recenti
+          const tr = document.createElement("tr");
+
+          const tdTime = document.createElement("td");
+          tdTime.textContent = fmtDateTime(r.time);
+          tr.appendChild(tdTime);
+
+          const tdTempInt = document.createElement("td");
+          tdTempInt.textContent = r.tempInt != null ? r.tempInt.toFixed(2) : "--";
+          tr.appendChild(tdTempInt);
+
+          const tdHumInt = document.createElement("td");
+          tdHumInt.textContent = r.humInt != null ? r.humInt.toFixed(1) : "--";
+          tr.appendChild(tdHumInt);
+
+          const tdPress = document.createElement("td");
+          tdPress.textContent = r.press != null ? r.press.toFixed(1) : "--";
+          tr.appendChild(tdPress);
+
+          const tdCpu = document.createElement("td");
+          tdCpu.textContent = r.cpu != null ? r.cpu.toFixed(1) : "--";
+          tr.appendChild(tdCpu);
+
+          const tdTempExt = document.createElement("td");
+          tdTempExt.textContent = r.tempExt != null ? r.tempExt.toFixed(2) : "--";
+          tr.appendChild(tdTempExt);
+
+          const tdHumExt = document.createElement("td");
+          tdHumExt.textContent = r.humExt != null ? r.humExt.toFixed(1) : "--";
+          tr.appendChild(tdHumExt);
+
+          frag.appendChild(tr);
+        });
+
+        bodyEl.appendChild(frag);
+
+        statusEl.textContent =
+          `Intervallo ${currentRange}: ${rows.length} righe mostrate (INT), ` +
+          `${extFiltered.length} punti EXT disponibili.`;
+
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "Errore nel caricamento da ThingSpeak.";
+        statusEl.classList.add("error");
+      }
+    }
+
+    // ========================
+    // GESTIONE BOTTONI RANGE
+    // ========================
+
+    function setupRangeButtons() {
+      const btns = document.querySelectorAll(".btn-range");
+      btns.forEach(btn => {
+        const r = btn.dataset.range;
+        if (r === currentRange) btn.classList.add("active");
+        btn.addEventListener("click", () => {
+          currentRange = r;
+          btns.forEach(b => b.classList.toggle("active", b.dataset.range === r));
+          loadAndRenderTable();
+        });
+      });
+    }
+
+    // ========================
+    // AVVIO
+    // ========================
+
+    window.addEventListener("load", () => {
+      setupRangeButtons();
+      // carico subito l'intervallo di default
+      loadAndRenderTable();
+      // refresh automatico ogni 2 minuti, come il kiosk
+      setInterval(loadAndRenderTable, 120000);
+    });
+  </script>
+</body>
+</html>
