@@ -195,6 +195,34 @@
       background: var(--accent);
     }
 
+    /* FILTRI TIPO EXCEL */
+    .filter-row th {
+      padding: 4px 6px;
+      background: #2f343f;
+      border-bottom: 1px solid #3b4050;
+    }
+
+    .filter-input {
+      width: 100%;
+      padding: 3px 4px;
+      border-radius: 4px;
+      border: 1px solid #444a5c;
+      background: #1b1f2b;
+      color: var(--text-main);
+      font-size: 11px;
+      outline: none;
+    }
+
+    .filter-input::placeholder {
+      color: rgba(197, 199, 209, 0.6);
+      font-size: 10px;
+    }
+
+    .filter-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(61, 124, 255, 0.6);
+    }
+
     @media (max-width: 700px) {
       .page {
         padding: 10px;
@@ -217,7 +245,7 @@
     <div class="page-header">
       <div class="title-block">
         <h1>Meteo – Dati grezzi</h1>
-        <span>Tabella dati da ThingSpeak (INT + EXT) con filtro temporale</span>
+        <span>Tabella dati da ThingSpeak (INT + EXT) con filtro temporale e filtri colonna</span>
       </div>
       <div class="range-buttons">
         <button class="btn-range" data-range="1h">1h</button>
@@ -256,6 +284,16 @@
             <th>Temp EXT (°C)</th>
             <th>UR EXT (%)</th>
           </tr>
+          <!-- RIGA FILTRI TIPO EXCEL -->
+          <tr class="filter-row">
+            <th><input class="filter-input" data-col="0" placeholder="Filtra data/ora" /></th>
+            <th><input class="filter-input" data-col="1" placeholder="Filtra temp INT" /></th>
+            <th><input class="filter-input" data-col="2" placeholder="Filtra UR INT" /></th>
+            <th><input class="filter-input" data-col="3" placeholder="Filtra pressione" /></th>
+            <th><input class="filter-input" data-col="4" placeholder="Filtra CPU" /></th>
+            <th><input class="filter-input" data-col="5" placeholder="Filtra temp EXT" /></th>
+            <th><input class="filter-input" data-col="6" placeholder="Filtra UR EXT" /></th>
+          </tr>
         </thead>
         <tbody id="data-body">
           <!-- righe inserite via JS -->
@@ -267,7 +305,6 @@
   <script>
     // ========================
     // CONFIGURAZIONE THINGSPEAK
-    // (copiata dal tuo main.js)
     // ========================
 
     const INTERNAL_CHANNEL_ID = 3152991;               // meteo_data
@@ -298,6 +335,9 @@
     };
 
     let currentRange = "1d";
+
+    // array globale con tutte le righe (prima dei filtri “Excel”)
+    let allRows = [];
 
     // ========================
     // UTILITÀ
@@ -341,12 +381,114 @@
     }
 
     // ========================
-    // RENDER TABELLA
+    // FILTRI TIPO EXCEL
+    // ========================
+
+    function getFilterValues() {
+      const inputs = document.querySelectorAll(".filter-input");
+      const filters = {};
+      inputs.forEach(input => {
+        const col = Number(input.dataset.col);
+        const value = input.value.trim().toLowerCase();
+        if (value) {
+          filters[col] = value;
+        }
+      });
+      return filters;
+    }
+
+    function rowMatchesFilters(row, filters) {
+      if (!Object.keys(filters).length) return true;
+
+      // costruisco le stringhe come compaiono in tabella
+      const cells = [
+        fmtDateTime(row.time),
+        row.tempInt != null ? row.tempInt.toFixed(2) : "--",
+        row.humInt  != null ? row.humInt.toFixed(1)  : "--",
+        row.press   != null ? row.press.toFixed(1)   : "--",
+        row.cpu     != null ? row.cpu.toFixed(1)     : "--",
+        row.tempExt != null ? row.tempExt.toFixed(2) : "--",
+        row.humExt  != null ? row.humExt.toFixed(1)  : "--"
+      ];
+
+      for (const [colStr, val] of Object.entries(filters)) {
+        const col = Number(colStr);
+        const cell = (cells[col] || "").toString().toLowerCase();
+        if (!cell.includes(val)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    function renderRows(rows) {
+      const bodyEl = document.getElementById("data-body");
+      bodyEl.innerHTML = "";
+      const frag = document.createDocumentFragment();
+
+      // mostro prima i più recenti
+      rows.slice().reverse().forEach(r => {
+        const tr = document.createElement("tr");
+
+        const tdTime = document.createElement("td");
+        tdTime.textContent = fmtDateTime(r.time);
+        tr.appendChild(tdTime);
+
+        const tdTempInt = document.createElement("td");
+        tdTempInt.textContent = r.tempInt != null ? r.tempInt.toFixed(2) : "--";
+        tr.appendChild(tdTempInt);
+
+        const tdHumInt = document.createElement("td");
+        tdHumInt.textContent = r.humInt != null ? r.humInt.toFixed(1) : "--";
+        tr.appendChild(tdHumInt);
+
+        const tdPress = document.createElement("td");
+        tdPress.textContent = r.press != null ? r.press.toFixed(1) : "--";
+        tr.appendChild(tdPress);
+
+        const tdCpu = document.createElement("td");
+        tdCpu.textContent = r.cpu != null ? r.cpu.toFixed(1) : "--";
+        tr.appendChild(tdCpu);
+
+        const tdTempExt = document.createElement("td");
+        tdTempExt.textContent = r.tempExt != null ? r.tempExt.toFixed(2) : "--";
+        tr.appendChild(tdTempExt);
+
+        const tdHumExt = document.createElement("td");
+        tdHumExt.textContent = r.humExt != null ? r.humExt.toFixed(1) : "--";
+        tr.appendChild(tdHumExt);
+
+        frag.appendChild(tr);
+      });
+
+      bodyEl.appendChild(frag);
+    }
+
+    function applyColumnFilters() {
+      const filters = getFilterValues();
+      const filtered = allRows.filter(r => rowMatchesFilters(r, filters));
+      renderRows(filtered);
+
+      const statusEl = document.getElementById("status");
+      statusEl.textContent =
+        `Intervallo ${currentRange}: ${filtered.length} righe mostrate (filtrate) su ${allRows.length} righe totali.`;
+    }
+
+    function setupHeaderFilters() {
+      const inputs = document.querySelectorAll(".filter-input");
+      inputs.forEach(input => {
+        input.addEventListener("input", () => {
+          applyColumnFilters();
+        });
+      });
+    }
+
+    // ========================
+    // CARICAMENTO E POPOLAMENTO DATI
     // ========================
 
     async function loadAndRenderTable() {
       const statusEl = document.getElementById("status");
-      const bodyEl = document.getElementById("data-body");
       const infoLastTs = document.getElementById("info-last-ts");
       const infoIntCount = document.getElementById("info-int-count");
       const infoExtCount = document.getElementById("info-ext-count");
@@ -354,12 +496,10 @@
 
       statusEl.textContent = "Caricamento dati da ThingSpeak…";
       statusEl.classList.remove("error");
-      bodyEl.innerHTML = "";
 
       try {
         const hours = RANGE_HOURS[currentRange] || 24;
 
-        // più risultati per intervalli lunghi (come nel main.js)
         const maxResults =
           currentRange === "1y" ? 8000 :
           currentRange === "1m" ? 5000 :
@@ -377,20 +517,7 @@
         infoExtCount.textContent = extFiltered.length;
         infoRange.textContent = currentRange;
 
-        // mappa esterna per timestamp -> valori EXT
-        const extMap = new Map();
-        extFiltered.forEach(f => {
-          const t = f.time.getTime();
-          const raw = f.raw;
-          const tExt = parseFloat(raw["field" + EXTERNAL_FIELDS.temp]);
-          const hExt = parseFloat(raw["field" + EXTERNAL_FIELDS.hum]);
-          extMap.set(t, {
-            tempExt: Number.isFinite(tExt) ? tExt : null,
-            humExt:  Number.isFinite(hExt) ? hExt : null
-          });
-        });
-
-        // ordina i dati interni per tempo e crea righe
+        // costruisci righe interne con match al dato EXT più vicino (entro 5 minuti)
         const rows = [];
         intFiltered.sort((a, b) => a.time - b.time).forEach(f => {
           const t = f.time;
@@ -401,12 +528,11 @@
           const press   = parseFloat(raw["field" + INTERNAL_FIELDS.press]);
           const cpu     = parseFloat(raw["field" + INTERNAL_FIELDS.cpu]);
 
-          // cerco il punto EXT con timestamp più vicino (entro 5 minuti)
           let nearestExt = { tempExt: null, humExt: null };
           let minDelta = Infinity;
           extFiltered.forEach(e => {
             const dt = Math.abs(e.time - t);
-            if (dt < minDelta && dt <= 5 * 60 * 1000) { // 5 minuti
+            if (dt < minDelta && dt <= 5 * 60 * 1000) {
               minDelta = dt;
               const r = e.raw;
               const te = parseFloat(r["field" + EXTERNAL_FIELDS.temp]);
@@ -436,47 +562,9 @@
           infoLastTs.textContent = "--";
         }
 
-        // popola la tabella
-        const frag = document.createDocumentFragment();
-        rows.reverse().forEach(r => {  // reverse: prima le righe più recenti
-          const tr = document.createElement("tr");
-
-          const tdTime = document.createElement("td");
-          tdTime.textContent = fmtDateTime(r.time);
-          tr.appendChild(tdTime);
-
-          const tdTempInt = document.createElement("td");
-          tdTempInt.textContent = r.tempInt != null ? r.tempInt.toFixed(2) : "--";
-          tr.appendChild(tdTempInt);
-
-          const tdHumInt = document.createElement("td");
-          tdHumInt.textContent = r.humInt != null ? r.humInt.toFixed(1) : "--";
-          tr.appendChild(tdHumInt);
-
-          const tdPress = document.createElement("td");
-          tdPress.textContent = r.press != null ? r.press.toFixed(1) : "--";
-          tr.appendChild(tdPress);
-
-          const tdCpu = document.createElement("td");
-          tdCpu.textContent = r.cpu != null ? r.cpu.toFixed(1) : "--";
-          tr.appendChild(tdCpu);
-
-          const tdTempExt = document.createElement("td");
-          tdTempExt.textContent = r.tempExt != null ? r.tempExt.toFixed(2) : "--";
-          tr.appendChild(tdTempExt);
-
-          const tdHumExt = document.createElement("td");
-          tdHumExt.textContent = r.humExt != null ? r.humExt.toFixed(1) : "--";
-          tr.appendChild(tdHumExt);
-
-          frag.appendChild(tr);
-        });
-
-        bodyEl.appendChild(frag);
-
-        statusEl.textContent =
-          `Intervallo ${currentRange}: ${rows.length} righe mostrate (INT), ` +
-          `${extFiltered.length} punti EXT disponibili.`;
+        // salva tutte le righe globalmente e applica filtri colonna
+        allRows = rows;
+        applyColumnFilters();
 
       } catch (err) {
         console.error(err);
@@ -508,9 +596,8 @@
 
     window.addEventListener("load", () => {
       setupRangeButtons();
-      // carico subito l'intervallo di default
+      setupHeaderFilters();
       loadAndRenderTable();
-      // refresh automatico ogni 2 minuti, come il kiosk
       setInterval(loadAndRenderTable, 120000);
     });
   </script>
