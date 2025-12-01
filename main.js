@@ -85,7 +85,7 @@ function filterByRange(feeds, hours) {
 
 const MAX_WINDOW_HOURS = 24.0;
 const P_HIGH = 1020.0;
-const P_LOW = 1008.0;
+const P_LOW = 1002.0;   // o 1000.0 se vuoi essere ancora più permissivo
 const DP3_STRONG = 4.0;
 const DP3_MEDIUM = 2.0;
 
