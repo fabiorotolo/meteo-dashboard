@@ -513,13 +513,17 @@ async function loadAndRender() {
       document.getElementById("press-minmax").textContent = "--";
     }
 
-    const pressTrace = {
-      x: pressPoints.map(p => p.x),
-      y: pressPoints.map(p => p.y),
-      mode: "lines",
-      line: { width: 2, color: "#ffffff" },
-      showlegend: false
-    };
+	const pressTrace = {
+	x: pressPoints.map(p => p.x),
+	y: pressPoints.map(p => p.y),
+	type: "scatter",
+	mode: "lines",
+	line: { color: "#00d4ff", width: 2.5 },
+	fill: "tozeroy",
+	fillcolor: "rgba(0, 212, 255, 0.15)",
+	showlegend: false,
+	hovertemplate: "%{y:.1f} hPa<extra></extra>"
+	};
 
     // Trace per i marker min/max
     const pressTraces = [pressTrace];
@@ -530,7 +534,7 @@ async function loadAndRender() {
         x: [minPressPoint.x],
         y: [minPressPoint.y],
         mode: getMarkerMode(),
-        marker: { size: 10, color: "#66aaff", symbol: "circle" },
+        marker: { size: 8, color: "#ff6666", symbol: "circle" },
         text: [minPress.toFixed(1)],
         textposition: "bottom center",
         textfont: { color: "#ffffff", size: getMarkerFontSize(), family: "system-ui", weight: "bold" },
@@ -544,7 +548,7 @@ async function loadAndRender() {
         x: [maxPressPoint.x],
         y: [maxPressPoint.y],
         mode: getMarkerMode(),
-        marker: { size: 10, color: "#ff6666", symbol: "circle" },
+        marker: { size: 8, color: "#66ff66", symbol: "circle" },
         text: [maxPress.toFixed(1)],
         textposition: "top center",
         textfont: { color: "#ffffff", size: getMarkerFontSize(), family: "system-ui", weight: "bold" },
@@ -566,12 +570,13 @@ async function loadAndRender() {
         tickformat: getXAxisFormat(currentRange)
       },
       yaxis: {
-        showgrid: true,
-        gridcolor: "#555555",
-        tickfont: { color: "#ffffff" },
-        linecolor: "#ffffff",
-        title: { text: "hPa", font: { color: "#ffffff" } }
-      }
+		showgrid: true,
+		gridcolor: "#555555",
+		tickfont: { color: "#ffffff" },
+		linecolor: "#ffffff",
+		title: { text: "hPa", font: { color: "#ffffff" } },
+		range: [minPress - 2, maxPress + 2]
+}
     }, { displayModeBar: false });
 
     // === GRAFICO TEMPERATURA INT/EXT ===
@@ -1137,3 +1142,4 @@ window.addEventListener("orientationchange", () => {
   }, 200);
 });
 
+s
