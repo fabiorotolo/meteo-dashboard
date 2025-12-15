@@ -35,6 +35,55 @@ const RANGE_HOURS = {
 };
 
 // ========================
+// FILTRI DATI (VALIDAZIONE PUNTI SPORCHI)
+// ========================
+
+const LIMITS = {
+  tempInt: { min: -10, max: 50 },
+  tempExt: { min: -30, max: 50 },
+  hum:     { min: 0,   max: 100 },
+  press:   { min: 950, max: 1050 },
+  cpu:     { min: 0,   max: 100 }
+};
+
+const DELTA_LIMITS = {
+  tempInt: 3.0,
+  tempExt: 4.0,
+  press:   4.0,
+  humInt:  10,
+  humExt:  15
+};
+
+function isValid(v, lim) {
+  return Number.isFinite(v) && v >= lim.min && v <= lim.max;
+}
+
+function filterSpikes(points, maxDelta) {
+  if (points.length < 2) return points;
+  const clean = [points[0]];
+  for (let i = 1; i < points.length; i++) {
+    const prev = clean[clean.length - 1].y;
+    const curr = points[i].y;
+    if (Math.abs(curr - prev) <= maxDelta) {
+      clean.push(points[i]);
+    }
+  }
+  return clean;
+}
+
+function buildSeries(feeds, field, limits, deltaLimit) {
+  const raw = feeds
+    .map(f => {
+      const v = parseFloat(f.raw[field]);
+      if (!isValid(v, limits)) return null;
+      return { x: f.time, y: v };
+    })
+    .filter(Boolean);
+
+  return deltaLimit ? filterSpikes(raw, deltaLimit) : raw;
+}
+
+// ========================
 // STATO GLOBALE
 // ========================
 let currentRange = "1d";
@@ -512,13 +561,13 @@ async function loadAndRender() {
       }
     }
 
-    // === GRAFICO PRESSIONE ===
-    const pressPoints = intFiltered
-      .map(f => {
-        const v = parseFloat(f.raw["field" + INTERNAL_FIELDS.press]);
-        return isNaN(v) ? null : { x: f.time, y: v };
-      })
-      .filter(Boolean);
+    // === GRAFICO PRESSIONE (CON FILTRAGGIO) ===
+    const pressPoints = buildSeries(
+      intFiltered,
+      "field" + INTERNAL_FIELDS.press,
+      LIMITS.press,
+      DELTA_LIMITS.press
+    );
 
     let minPress, maxPress, minPressPoint, maxPressPoint;
     if (pressPoints.length > 0) {
@@ -579,7 +628,7 @@ async function loadAndRender() {
 
     Plotly.newPlot("chart-press", pressTraces, {
       margin: getChartMargins(),
-      dragmode: "pan",  // ABILITA PAN
+      dragmode: "pan",
       paper_bgcolor: "rgba(0,0,0,0)",
       plot_bgcolor: "rgba(0,0,0,0)",
       font: { color: "#ffffff" },
@@ -600,23 +649,22 @@ async function loadAndRender() {
       }
     }, { displayModeBar: false });
 
-    // SETUP PAN HANDLER
     setupPanHandler("chart-press");
 
-    // === GRAFICO TEMPERATURA INT/EXT ===
-    const tempIntPoints = intFiltered
-      .map(f => {
-        const v = parseFloat(f.raw["field" + INTERNAL_FIELDS.temp]);
-        return isNaN(v) ? null : { x: f.time, y: v };
-      })
-      .filter(Boolean);
+    // === GRAFICO TEMPERATURA INT/EXT (CON FILTRAGGIO) ===
+    const tempIntPoints = buildSeries(
+      intFiltered,
+      "field" + INTERNAL_FIELDS.temp,
+      LIMITS.tempInt,
+      DELTA_LIMITS.tempInt
+    );
 
-    const tempExtPoints = extFiltered
-      .map(f => {
-        const v = parseFloat(f.raw["field" + EXTERNAL_FIELDS.temp]);
-        return isNaN(v) ? null : { x: f.time, y: v };
-      })
-      .filter(Boolean);
+    const tempExtPoints = buildSeries(
+      extFiltered,
+      "field" + EXTERNAL_FIELDS.temp,
+      LIMITS.tempExt,
+      DELTA_LIMITS.tempExt
+    );
 
     let tempMinMaxText = "";
     let minTempInt, maxTempInt, minTempExt, maxTempExt;
@@ -659,7 +707,6 @@ async function loadAndRender() {
 
     const tempTraces = [tempIntTrace, tempExtTrace];
     
-    // Marker temperatura INTERNA
     if (minTempIntPoint) {
       tempTraces.push({
         x: [minTempIntPoint.x],
@@ -687,7 +734,6 @@ async function loadAndRender() {
       });
     }
     
-    // Marker temperatura ESTERNA
     if (minTempExtPoint) {
       tempTraces.push({
         x: [minTempExtPoint.x],
@@ -717,7 +763,7 @@ async function loadAndRender() {
 
     Plotly.newPlot("chart-temp", tempTraces, {
       margin: getChartMargins(),
-      dragmode: "pan",  // ABILITA PAN
+      dragmode: "pan",
       paper_bgcolor: "rgba(0,0,0,0)",
       plot_bgcolor: "rgba(0,0,0,0)",
       font: { color: "#ffffff" },
@@ -738,23 +784,22 @@ async function loadAndRender() {
       legend: { orientation: "h", y: 1.15 }
     }, { displayModeBar: false });
 
-    // SETUP PAN HANDLER
     setupPanHandler("chart-temp");
 
-    // === GRAFICO UMIDITÀ INT/EXT ===
-    const humIntPoints = intFiltered
-      .map(f => {
-        const v = parseFloat(f.raw["field" + INTERNAL_FIELDS.hum]);
-        return isNaN(v) ? null : { x: f.time, y: v };
-      })
-      .filter(Boolean);
+    // === GRAFICO UMIDITÀ INT/EXT (CON FILTRAGGIO) ===
+    const humIntPoints = buildSeries(
+      intFiltered,
+      "field" + INTERNAL_FIELDS.hum,
+      LIMITS.hum,
+      DELTA_LIMITS.humInt
+    );
 
-    const humExtPoints = extFiltered
-      .map(f => {
-        const v = parseFloat(f.raw["field" + EXTERNAL_FIELDS.hum]);
-        return isNaN(v) ? null : { x: f.time, y: v };
-      })
-      .filter(Boolean);
+    const humExtPoints = buildSeries(
+      extFiltered,
+      "field" + EXTERNAL_FIELDS.hum,
+      LIMITS.hum,
+      DELTA_LIMITS.humExt
+    );
 
     let humMinMaxText = "";
     let minHumInt, maxHumInt, minHumExt, maxHumExt;
@@ -797,7 +842,6 @@ async function loadAndRender() {
 
     const humTraces = [humIntTrace, humExtTrace];
     
-    // Marker umidità INTERNA
     if (minHumIntPoint) {
       humTraces.push({
         x: [minHumIntPoint.x],
@@ -825,7 +869,6 @@ async function loadAndRender() {
       });
     }
     
-    // Marker umidità ESTERNA
     if (minHumExtPoint) {
       humTraces.push({
         x: [minHumExtPoint.x],
@@ -855,7 +898,7 @@ async function loadAndRender() {
 
     Plotly.newPlot("chart-hum", humTraces, {
       margin: getChartMargins(),
-      dragmode: "pan",  // ABILITA PAN
+      dragmode: "pan",
       paper_bgcolor: "rgba(0,0,0,0)",
       plot_bgcolor: "rgba(0,0,0,0)",
       font: { color: "#ffffff" },
@@ -876,7 +919,6 @@ async function loadAndRender() {
       legend: { orientation: "h", y: 1.15 }
     }, { displayModeBar: false });
 
-    // SETUP PAN HANDLER
     setupPanHandler("chart-hum");
 
     // === PREVISIONE METEO AVANZATA ===
@@ -1030,7 +1072,6 @@ async function loadSunData() {
 
 async function updateAstroData() {
   try {
-    // Fase lunare
     const moon = calculateMoonPhase();
     
     const moonIconEl = document.getElementById("moon-icon");
@@ -1045,7 +1086,6 @@ async function updateAstroData() {
   }
   
   try {
-    // Posizione del sole
     const sun = await loadSunData();
     
     const sunriseStr = sun.sunrise.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
