@@ -3,7 +3,7 @@
 // ========================
 
 const INTERNAL_CHANNEL_ID = 3152991;
-const INTERNAL_READ_KEY   = "3I7MYYDZS4IKL3YJ";
+const INTERNAL_READ_KEY = "3I7MYYDZS4IKL3YJ";
 
 const INTERNAL_FIELDS = {
   temp: 4,
@@ -13,7 +13,7 @@ const INTERNAL_FIELDS = {
 };
 
 const EXTERNAL_CHANNEL_ID = 3181129;
-const EXTERNAL_READ_KEY   = "7JYH3JOONPFPNQNE";
+const EXTERNAL_READ_KEY = "7JYH3JOONPFPNQNE";
 
 const EXTERNAL_FIELDS = {
   hum: 1,
@@ -36,10 +36,11 @@ const RANGE_HOURS = {
 // ========================
 
 let currentRange = "1d";
-let currentEndTime = new Date();   // ⬅️ ORA LOGICA
+let currentEndTime = new Date();   // ORA LOGICA
+let isDragging = false;            // FLAG DRAG
 
 // ========================
-// UTILITÀ DI BASE
+// UTILITÀ
 // ========================
 
 function fmtTime(d) {
@@ -51,7 +52,7 @@ function fmtDateTime(d) {
 }
 
 // ========================
-// FETCH THINGSPEAK
+// FETCH
 // ========================
 
 async function fetchChannelFeeds(channelId, apiKey, maxResults) {
@@ -70,24 +71,12 @@ async function fetchChannelFeeds(channelId, apiKey, maxResults) {
 }
 
 // ========================
-// FILTRO TEMPORALE (CORRETTO)
+// FILTRO TEMPORALE CORRETTO
 // ========================
 
 function filterByRange(feeds, hours, endTime) {
   const start = new Date(endTime.getTime() - hours * 3600 * 1000);
   return feeds.filter(f => f.time >= start && f.time <= endTime);
-}
-
-// ========================
-// OROLOGIO
-// ========================
-
-function startClock() {
-  const el = document.getElementById("clock-time");
-  if (!el) return;
-  const tick = () => el.textContent = fmtTime(new Date());
-  tick();
-  setInterval(tick, 1000);
 }
 
 // ========================
@@ -103,7 +92,7 @@ function setupRangeButtons() {
 
     btn.addEventListener("click", () => {
       currentRange = r;
-      currentEndTime = new Date();   // ⬅️ reset a ORA
+      currentEndTime = new Date();   // reset a ORA
       btns.forEach(b => b.classList.toggle("active", b.dataset.range === r));
       loadAndRender();
     });
@@ -119,7 +108,9 @@ function getXAxisFormat(range) {
 }
 
 function getChartMargins() {
-  return window.innerWidth <= 900 ? { l: 35, r: 5, t: 8, b: 18 } : { l: 55, r: 10, t: 10, b: 25 };
+  return window.innerWidth <= 900
+    ? { l: 35, r: 5, t: 8, b: 18 }
+    : { l: 55, r: 10, t: 10, b: 25 };
 }
 
 function getMarkerMode() {
@@ -127,7 +118,7 @@ function getMarkerMode() {
 }
 
 // ========================
-// LOAD & RENDER (CORE)
+// LOAD & RENDER
 // ========================
 
 async function loadAndRender() {
@@ -141,15 +132,12 @@ async function loadAndRender() {
       currentRange === "1m" ? 5000 :
       currentRange === "1w" ? 3000 : 2000;
 
-    const [intFeeds, extFeeds] = await Promise.all([
-      fetchChannelFeeds(INTERNAL_CHANNEL_ID, INTERNAL_READ_KEY, maxResults),
-      fetchChannelFeeds(EXTERNAL_CHANNEL_ID, EXTERNAL_READ_KEY, maxResults)
+    const [intFeeds] = await Promise.all([
+      fetchChannelFeeds(INTERNAL_CHANNEL_ID, INTERNAL_READ_KEY, maxResults)
     ]);
 
     const hours = RANGE_HOURS[currentRange];
-
     const intFiltered = filterByRange(intFeeds, hours, currentEndTime);
-    const extFiltered = filterByRange(extFeeds, hours, currentEndTime);
 
     // ========================
     // PRESSIONE
@@ -182,17 +170,19 @@ async function loadAndRender() {
         showlegend: false
       },
       minPt && {
-        x: [minPt.x], y: [minPt.y],
+        x: [minPt.x],
+        y: [minPt.y],
         mode: getMarkerMode(),
-        marker: { color: "#ff6666", size: 8 },
+        marker: { size: 8, color: "#ff6666" },
         text: [minP.toFixed(1)],
         textposition: "bottom center",
         showlegend: false
       },
       maxPt && {
-        x: [maxPt.x], y: [maxPt.y],
+        x: [maxPt.x],
+        y: [maxPt.y],
         mode: getMarkerMode(),
-        marker: { color: "#66ff66", size: 8 },
+        marker: { size: 8, color: "#66ff66" },
         text: [maxP.toFixed(1)],
         textposition: "top center",
         showlegend: false
@@ -202,31 +192,42 @@ async function loadAndRender() {
       dragmode: "pan",
       paper_bgcolor: "rgba(0,0,0,0)",
       plot_bgcolor: "rgba(0,0,0,0)",
-      font: { color: "#fff" },
+      font: { color: "#ffffff" },
       xaxis: { tickformat: getXAxisFormat(currentRange) },
-      yaxis: { range: minP != null ? [minP - 2, maxP + 2] : undefined }
+      yaxis: minP != null ? { range: [minP - 2, maxP + 2] } : {}
     }, { displayModeBar: false });
 
     // ========================
-    // PAN LOGICO → NUOVO END TIME
+    // PAN LOGICO (RILASCIO)
     // ========================
 
     const div = document.getElementById("chart-press");
+
     div.removeAllListeners?.("plotly_relayout");
+    div.removeAllListeners?.("plotly_relayouting");
+
+    div.on("plotly_relayouting", () => {
+      isDragging = true;
+    });
 
     div.on("plotly_relayout", ev => {
+      if (!isDragging) return;
       if (!ev["xaxis.range[1]"]) return;
+
+      isDragging = false;
+
       const newEnd = new Date(ev["xaxis.range[1]"]);
       if (Math.abs(newEnd - currentEndTime) < 1000) return;
+
       currentEndTime = newEnd;
       loadAndRender();
     });
 
     status.textContent =
-      `Range ${currentRange} | Fine: ${fmtDateTime(currentEndTime)} | Punti INT: ${intFiltered.length}`;
+      `Range ${currentRange} | Fine: ${fmtDateTime(currentEndTime)} | Punti: ${intFiltered.length}`;
 
-  } catch (e) {
-    console.error(e);
+  } catch (err) {
+    console.error(err);
     status.textContent = "Errore caricamento dati";
   }
 }
@@ -236,7 +237,6 @@ async function loadAndRender() {
 // ========================
 
 window.addEventListener("load", () => {
-  startClock();
   setupRangeButtons();
   loadAndRender();
   setInterval(loadAndRender, 120000);
