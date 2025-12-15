@@ -1,50 +1,117 @@
-// =======================
-// CONFIG
-// =======================
+// =====================================================
+// CONFIG THINGSPEAK
+// =====================================================
 
 const CH = 3152991;
 const KEY = "3I7MYYDZS4IKL3YJ";
-const FIELD = 3;
+const FIELD_PRESS = 3;
 
-let allPoints = [];
-let currentRange = "1d";
+// =====================================================
+// RANGE DEFINIZIONI
+// =====================================================
 
 const RANGE_HOURS = {
-  "1h": 1,
-  "3h": 3,
-  "6h": 6,
-  "12h": 12,
-  "1d": 24
+  "1d": 24,
+  "1w": 168,
+  "1m": 720,
+  "3m": 2160,
+  "1y": 8760,
+  "2y": 17520
 };
 
-// =======================
-// FETCH
-// =======================
+// gerarchia di caricamento
+const RANGE_PARENT = {
+  "1d": "1w",
+  "1w": "1m",
+  "1m": "3m",
+  "3m": "1y",
+  "1y": "2y"
+};
 
-async function loadData() {
+// =====================================================
+// CACHE DATI
+// =====================================================
+
+const dataCache = {
+  "1w": null,
+  "1m": null,
+  "3m": null,
+  "1y": null,
+  "2y": null
+};
+
+// =====================================================
+// FILTRI PRESSIONE
+// =====================================================
+
+const PRESS_LIMITS = { min: 950, max: 1050 };
+const PRESS_DELTA = 4;
+
+function validPress(v) {
+  return Number.isFinite(v) && v >= PRESS_LIMITS.min && v <= PRESS_LIMITS.max;
+}
+
+function filterSpikes(points) {
+  if (points.length < 2) return points;
+  const out = [points[0]];
+  for (let i = 1; i < points.length; i++) {
+    if (Math.abs(points[i].y - out[out.length - 1].y) <= PRESS_DELTA)
+      out.push(points[i]);
+  }
+  return out;
+}
+
+// =====================================================
+// FETCH & CACHE
+// =====================================================
+
+async function loadRange(range) {
+  if (dataCache[range]) return dataCache[range];
+
+  const results =
+    range === "2y" ? 8000 :
+    range === "1y" ? 7000 :
+    range === "3m" ? 5000 :
+    range === "1m" ? 4000 :
+    range === "1w" ? 3000 : 2000;
+
   const res = await fetch(
-    `https://api.thingspeak.com/channels/${CH}/feeds.json?api_key=${KEY}&results=2000`
+    `https://api.thingspeak.com/channels/${CH}/feeds.json?api_key=${KEY}&results=${results}`
   );
   const json = await res.json();
 
-  allPoints = json.feeds.map(f => ({
-    x: new Date(f.created_at),
-    y: parseFloat(f["field" + FIELD])
-  })).filter(p => Number.isFinite(p.y));
+  const points = json.feeds
+    .map(f => {
+      const v = parseFloat(f["field" + FIELD_PRESS]);
+      if (!validPress(v)) return null;
+      return { x: new Date(f.created_at), y: v };
+    })
+    .filter(Boolean);
+
+  dataCache[range] = filterSpikes(points);
+  return dataCache[range];
 }
 
-// =======================
+// =====================================================
+// DATA PER RANGE RICHIESTO
+// =====================================================
+
+async function getDataForRange(range) {
+
+  // se ho già il range esatto
+  if (dataCache[range]) return dataCache[range];
+
+  // uso il parent
+  const parent = RANGE_PARENT[range];
+  const parentData = await loadRange(parent);
+
+  const cut = Date.now() - RANGE_HOURS[range] * 3600 * 1000;
+  return parentData.filter(p => p.x.getTime() >= cut);
+}
+
+// =====================================================
 // UTILS
-// =======================
-
-function filterByX(points, x0, x1) {
-  const t0 = new Date(x0).getTime();
-  const t1 = new Date(x1).getTime();
-  return points.filter(p => {
-    const t = p.x.getTime();
-    return t >= t0 && t <= t1;
-  });
-}
+// =====================================================
 
 function minMax(points) {
   let min = points[0], max = points[0];
@@ -55,9 +122,9 @@ function minMax(points) {
   return { min, max };
 }
 
-// =======================
+// =====================================================
 // RENDER
-// =======================
+// =====================================================
 
 function render(points) {
 
@@ -96,30 +163,33 @@ function render(points) {
   }, { displayModeBar: false });
 }
 
-// =======================
-// INIT
-// =======================
+// =====================================================
+// INIT & RANGE BUTTONS
+// =====================================================
 
-async function init() {
-  await loadData();
+let currentRange = "1d";
 
-  const cut = Date.now() - RANGE_HOURS[currentRange] * 3600 * 1000;
-  const initial = allPoints.filter(p => p.x.getTime() >= cut);
-  render(initial);
-
-  const div = document.getElementById("chart-press");
-
-  div.on("plotly_relayout", ev => {
-    if (!ev["xaxis.range[0]"]) return;
-
-    const filtered = filterByX(
-      allPoints,
-      ev["xaxis.range[0]"],
-      ev["xaxis.range[1]"]
-    );
-
-    if (filtered.length > 2) render(filtered);
-  });
+async function updateRange(range) {
+  currentRange = range;
+  const data = await getDataForRange(range);
+  render(data);
 }
 
-init();
+// preload intelligente (background)
+setTimeout(() => loadRange("1w"), 500);
+setTimeout(() => loadRange("1m"), 1200);
+setTimeout(() => loadRange("3m"), 2000);
+setTimeout(() => loadRange("1y"), 3000);
+setTimeout(() => loadRange("2y"), 4500);
+
+// init
+updateRange("1d");
+
+// bottoni range (se presenti)
+document.querySelectorAll(".btn-range").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".btn-range")
+      .forEach(b => b.classList.toggle("active", b === btn));
+    updateRange(btn.dataset.range);
+  });
+});
