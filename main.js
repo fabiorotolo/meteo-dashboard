@@ -1,11 +1,13 @@
 // =======================
-// THINGSPEAK CONFIG
+// CONFIG
 // =======================
 
-const INT_CH = 3152991;
-const INT_KEY = "3I7MYYDZS4IKL3YJ";
+const CH = 3152991;
+const KEY = "3I7MYYDZS4IKL3YJ";
+const FIELD = 3;
 
-const INT_FIELDS = { press: 3 };
+let allPoints = [];
+let currentRange = "1d";
 
 const RANGE_HOURS = {
   "1h": 1,
@@ -16,106 +18,75 @@ const RANGE_HOURS = {
 };
 
 // =======================
-// DATA FILTERS
-// =======================
-
-const PRESS_LIMITS = { min: 950, max: 1050 };
-const PRESS_DELTA = 4;
-
-function valid(v) {
-  return Number.isFinite(v) && v >= PRESS_LIMITS.min && v <= PRESS_LIMITS.max;
-}
-
-function filterSpikes(arr) {
-  if (arr.length < 2) return arr;
-  const out = [arr[0]];
-  for (let i = 1; i < arr.length; i++) {
-    if (Math.abs(arr[i].y - out[out.length - 1].y) <= PRESS_DELTA)
-      out.push(arr[i]);
-  }
-  return out;
-}
-
-// =======================
 // FETCH
 // =======================
 
-async function fetchData(hours) {
+async function loadData() {
   const res = await fetch(
-    `https://api.thingspeak.com/channels/${INT_CH}/feeds.json?api_key=${INT_KEY}&results=2000`
+    `https://api.thingspeak.com/channels/${CH}/feeds.json?api_key=${KEY}&results=2000`
   );
   const json = await res.json();
 
-  const cut = Date.now() - hours * 3600 * 1000;
-
-  const pts = json.feeds
-    .map(f => {
-      const v = parseFloat(f["field" + INT_FIELDS.press]);
-      if (!valid(v)) return null;
-      const t = new Date(f.created_at);
-      if (t.getTime() < cut) return null;
-      return { x: t, y: v };
-    })
-    .filter(Boolean);
-
-  return filterSpikes(pts);
+  allPoints = json.feeds.map(f => ({
+    x: new Date(f.created_at),
+    y: parseFloat(f["field" + FIELD])
+  })).filter(p => Number.isFinite(p.y));
 }
 
 // =======================
-// MIN / MAX
+// UTILS
 // =======================
 
-function minMax(points, x0, x1) {
+function filterByX(points, x0, x1) {
   const t0 = new Date(x0).getTime();
   const t1 = new Date(x1).getTime();
-  let min = null, max = null;
-
-  for (const p of points) {
+  return points.filter(p => {
     const t = p.x.getTime();
-    if (t < t0 || t > t1) continue;
-    if (!min || p.y < min.y) min = p;
-    if (!max || p.y > max.y) max = p;
+    return t >= t0 && t <= t1;
+  });
+}
+
+function minMax(points) {
+  let min = points[0], max = points[0];
+  for (const p of points) {
+    if (p.y < min.y) min = p;
+    if (p.y > max.y) max = p;
   }
-  return min && max ? { min, max } : null;
+  return { min, max };
 }
 
 // =======================
-// MAIN
+// RENDER
 // =======================
 
-let currentRange = "1d";
-let pressPoints = [];
+function render(points) {
 
-async function render() {
+  const mm = minMax(points);
 
-  pressPoints = await fetchData(RANGE_HOURS[currentRange]);
-
-  const div = document.getElementById("chart-press");
-
-  const line = {
-    x: pressPoints.map(p => p.x),
-    y: pressPoints.map(p => p.y),
-    mode: "lines",
-    line: { color: "#00d4ff", width: 2 }
-  };
-
-  const minTrace = {
-    x: [], y: [],
-    mode: "markers+text",
-    marker: { size: 9, color: "#ff6666" },
-    text: [],
-    showlegend: false
-  };
-
-  const maxTrace = {
-    x: [], y: [],
-    mode: "markers+text",
-    marker: { size: 9, color: "#66ff66" },
-    text: [],
-    showlegend: false
-  };
-
-  Plotly.newPlot(div, [line, minTrace, maxTrace], {
+  Plotly.react("chart-press", [
+    {
+      x: points.map(p => p.x),
+      y: points.map(p => p.y),
+      mode: "lines",
+      line: { color: "#00d4ff", width: 2 }
+    },
+    {
+      x: [mm.min.x],
+      y: [mm.min.y],
+      mode: "markers+text",
+      text: [mm.min.y.toFixed(1) + " hPa"],
+      marker: { color: "#ff6666", size: 9 },
+      showlegend: false
+    },
+    {
+      x: [mm.max.x],
+      y: [mm.max.y],
+      mode: "markers+text",
+      text: [mm.max.y.toFixed(1) + " hPa"],
+      marker: { color: "#66ff66", size: 9 },
+      showlegend: false
+    }
+  ], {
     dragmode: "pan",
     xaxis: { fixedrange: false },
     yaxis: { autorange: true, title: "hPa" },
@@ -123,29 +94,32 @@ async function render() {
     paper_bgcolor: "rgba(0,0,0,0)",
     plot_bgcolor: "rgba(0,0,0,0)"
   }, { displayModeBar: false });
+}
+
+// =======================
+// INIT
+// =======================
+
+async function init() {
+  await loadData();
+
+  const cut = Date.now() - RANGE_HOURS[currentRange] * 3600 * 1000;
+  const initial = allPoints.filter(p => p.x.getTime() >= cut);
+  render(initial);
+
+  const div = document.getElementById("chart-press");
 
   div.on("plotly_relayout", ev => {
     if (!ev["xaxis.range[0]"]) return;
 
-    const mm = minMax(
-      pressPoints,
+    const filtered = filterByX(
+      allPoints,
       ev["xaxis.range[0]"],
       ev["xaxis.range[1]"]
     );
-    if (!mm) return;
 
-    Plotly.restyle(div, {
-      x: [[mm.min.x]],
-      y: [[mm.min.y]],
-      text: [[mm.min.y.toFixed(1) + " hPa"]]
-    }, [1]);
-
-    Plotly.restyle(div, {
-      x: [[mm.max.x]],
-      y: [[mm.max.y]],
-      text: [[mm.max.y.toFixed(1) + " hPa"]]
-    }, [2]);
+    if (filtered.length > 2) render(filtered);
   });
 }
 
-render();
+init();
