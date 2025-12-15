@@ -6,10 +6,10 @@ const INTERNAL_CHANNEL_ID = 3152991;
 const INTERNAL_READ_KEY   = "3I7MYYDZS4IKL3YJ";
 
 const INTERNAL_FIELDS = {
-  temp: 4,
-  hum:  2,
+  temp:  4,
+  hum:   2,
   press: 3,
-  cpu:  5
+  cpu:   5
 };
 
 const EXTERNAL_CHANNEL_ID = 3181129;
@@ -32,7 +32,7 @@ const RANGE_HOURS = {
 };
 
 // ========================
-// FILTRI DATI (VALIDATI)
+// FILTRI VALIDATI
 // ========================
 
 const LIMITS = {
@@ -57,15 +57,13 @@ function isValid(v, lim) {
 
 function filterSpikes(points, maxDelta) {
   if (points.length < 2) return points;
-  const clean = [points[0]];
+  const out = [points[0]];
   for (let i = 1; i < points.length; i++) {
-    const prev = clean[clean.length - 1].y;
+    const prev = out[out.length - 1].y;
     const curr = points[i].y;
-    if (Math.abs(curr - prev) <= maxDelta) {
-      clean.push(points[i]);
-    }
+    if (Math.abs(curr - prev) <= maxDelta) out.push(points[i]);
   }
-  return clean;
+  return out;
 }
 
 function buildSeries(feeds, field, limits, deltaLimit) {
@@ -84,23 +82,13 @@ function buildSeries(feeds, field, limits, deltaLimit) {
 // UTILITY
 // ========================
 
-function fmtTime(d) {
-  return d.toLocaleTimeString("it-IT");
-}
-
-function fmtDateTime(d) {
-  return d.toLocaleString("it-IT");
-}
-
 async function fetchChannelFeeds(channelId, apiKey, maxResults) {
   const url =
     `https://api.thingspeak.com/channels/${channelId}/feeds.json` +
     `?api_key=${apiKey}&results=${maxResults}`;
-
   const res = await fetch(url);
   if (!res.ok) throw new Error("Errore HTTP " + res.status);
   const data = await res.json();
-
   return (data.feeds || []).map(f => ({
     time: new Date(f.created_at),
     raw: f
@@ -123,34 +111,6 @@ const PLOT_CONFIG = {
   responsive: true
 };
 
-function baseLayout(yTitle, rangeX, rangeY) {
-  return {
-    dragmode: "pan",
-    margin: getChartMargins(),
-    paper_bgcolor: "rgba(0,0,0,0)",
-    plot_bgcolor: "rgba(0,0,0,0)",
-    font: { color: "#ffffff" },
-    xaxis: {
-      showgrid: true,
-      gridcolor: "#555",
-      tickformat: getXAxisFormat(currentRange),
-      fixedrange: false,
-      range: rangeX || null
-    },
-    yaxis: {
-      showgrid: true,
-      gridcolor: "#555",
-      title: yTitle,
-      fixedrange: true,
-      range: rangeY || null
-    }
-  };
-}
-
-// ========================
-// UI HELPERS
-// ========================
-
 function getXAxisFormat(range) {
   return RANGE_HOURS[range] <= 24 ? "%H:%M" : "%d/%m";
 }
@@ -160,13 +120,82 @@ function getChartMargins() {
   return small ? { l: 35, r: 5, t: 8, b: 18 } : { l: 55, r: 10, t: 10, b: 25 };
 }
 
+function baseLayout(yTitle) {
+  return {
+    dragmode: "pan",
+    margin: getChartMargins(),
+    paper_bgcolor: "rgba(0,0,0,0)",
+    plot_bgcolor: "rgba(0,0,0,0)",
+    font: { color: "#fff" },
+    xaxis: {
+      showgrid: true,
+      gridcolor: "#555",
+      tickformat: getXAxisFormat(currentRange),
+      fixedrange: false
+    },
+    yaxis: {
+      showgrid: true,
+      gridcolor: "#555",
+      title: yTitle,
+      fixedrange: true
+    }
+  };
+}
+
 // ========================
-// MAIN RENDER
+// MIN / MAX DINAMICI
+// ========================
+
+function computeMinMaxInRange(points, xMin, xMax) {
+  const vis = points.filter(p => {
+    const t = p.x.getTime();
+    return (!xMin || t >= xMin) && (!xMax || t <= xMax);
+  });
+  if (!vis.length) return null;
+
+  let min = vis[0], max = vis[0];
+  for (const p of vis) {
+    if (p.y < min.y) min = p;
+    if (p.y > max.y) max = p;
+  }
+  return { min, max };
+}
+
+function buildMinMaxMarkers(min, max, color, unit, decimals) {
+  const out = [];
+  if (min) out.push({
+    x: [min.x],
+    y: [min.y],
+    mode: "markers+text",
+    marker: { size: 8, color },
+    text: [min.y.toFixed(decimals) + unit],
+    textposition: "bottom center",
+    textfont: { size: 11, color: "#fff", weight: "bold" },
+    showlegend: false,
+    hoverinfo: "skip"
+  });
+  if (max) out.push({
+    x: [max.x],
+    y: [max.y],
+    mode: "markers+text",
+    marker: { size: 8, color },
+    text: [max.y.toFixed(decimals) + unit],
+    textposition: "top center",
+    textfont: { size: 11, color: "#fff", weight: "bold" },
+    showlegend: false,
+    hoverinfo: "skip"
+  });
+  return out;
+}
+
+// ========================
+// MAIN
 // ========================
 
 let currentRange = "1d";
 
 async function loadAndRender() {
+
   const maxResults =
     currentRange === "1y" ? 8000 :
     currentRange === "1m" ? 5000 :
@@ -181,10 +210,7 @@ async function loadAndRender() {
   const intFiltered = filterByRange(intFeeds, hours);
   const extFiltered = filterByRange(extFeeds, hours);
 
-  // ========================
-  // PRESSIONE
-  // ========================
-
+  // ===== PRESSIONE =====
   const pressPoints = buildSeries(
     intFiltered,
     "field" + INTERNAL_FIELDS.press,
@@ -202,96 +228,29 @@ async function loadAndRender() {
     hovertemplate: "%{y:.1f} hPa<extra></extra>"
   };
 
-  const pVals = pressPoints.map(p => p.y);
-  const pMin = Math.min(...pVals);
-  const pMax = Math.max(...pVals);
+  const pressDiv = document.getElementById("chart-press");
 
-  Plotly.newPlot(
-    "chart-press",
-    [pressTrace],
-    baseLayout("hPa", null, [pMin - 2, pMax + 2]),
-    PLOT_CONFIG
-  );
+  function renderPress(xMin, xMax) {
+    const mm = computeMinMaxInRange(pressPoints, xMin, xMax);
+    Plotly.react(
+      pressDiv,
+      [
+        pressTrace,
+        ...(mm ? buildMinMaxMarkers(mm.min, mm.max, "#00ffcc", " hPa", 1) : [])
+      ],
+      baseLayout("hPa"),
+      PLOT_CONFIG
+    );
+  }
 
-  // ========================
-  // TEMPERATURE
-  // ========================
+  renderPress();
 
-  const tempInt = buildSeries(
-    intFiltered,
-    "field" + INTERNAL_FIELDS.temp,
-    LIMITS.tempInt,
-    DELTA_LIMITS.tempInt
-  );
-
-  const tempExt = buildSeries(
-    extFiltered,
-    "field" + EXTERNAL_FIELDS.temp,
-    LIMITS.tempExt,
-    DELTA_LIMITS.tempExt
-  );
-
-  Plotly.newPlot(
-    "chart-temp",
-    [
-      {
-        x: tempInt.map(p => p.x),
-        y: tempInt.map(p => p.y),
-        name: "Temp INT",
-        mode: "lines",
-        line: { color: "#ff6666" }
-      },
-      {
-        x: tempExt.map(p => p.x),
-        y: tempExt.map(p => p.y),
-        name: "Temp EXT",
-        mode: "lines",
-        line: { color: "#66aaff" }
-      }
-    ],
-    baseLayout("°C"),
-    PLOT_CONFIG
-  );
-
-  // ========================
-  // UMIDITÀ
-  // ========================
-
-  const humInt = buildSeries(
-    intFiltered,
-    "field" + INTERNAL_FIELDS.hum,
-    LIMITS.hum,
-    DELTA_LIMITS.humInt
-  );
-
-  const humExt = buildSeries(
-    extFiltered,
-    "field" + EXTERNAL_FIELDS.hum,
-    LIMITS.hum,
-    DELTA_LIMITS.humExt
-  );
-
-  Plotly.newPlot(
-    "chart-hum",
-    [
-      {
-        x: humInt.map(p => p.x),
-        y: humInt.map(p => p.y),
-        name: "UR INT",
-        mode: "lines",
-        line: { color: "#ff6666" }
-      },
-      {
-        x: humExt.map(p => p.x),
-        y: humExt.map(p => p.y),
-        name: "UR EXT",
-        mode: "lines",
-        line: { color: "#66aaff" }
-      }
-    ],
-    baseLayout("%"),
-    PLOT_CONFIG
-  );
+  pressDiv.on("plotly_relayout", ev => {
+    if (!ev["xaxis.range[0]"]) return;
+    const xMin = new Date(ev["xaxis.range[0]"]).getTime();
+    const xMax = new Date(ev["xaxis.range[1]"]).getTime();
+    renderPress(xMin, xMax);
+  });
 }
 
 // ========================
