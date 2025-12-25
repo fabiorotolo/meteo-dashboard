@@ -717,6 +717,23 @@ body {
     flex: 0 0 auto !important;
   }
 
+  /* RIORDINO PANNELLI SU MOBILE */
+  .panel-meteo {
+    order: 1 !important; /* Meteo + sole/luna per primo */
+  }
+  
+  .panel-press {
+    order: 2 !important; /* Pressione secondo */
+  }
+  
+  .panel-temp {
+    order: 3 !important; /* Temperatura terzo */
+  }
+  
+  .panel-hum {
+    order: 4 !important; /* Umidità quarto */
+  }
+
   .panel {
     flex: 0 0 auto !important;
     padding: 8px 10px !important;
@@ -834,7 +851,7 @@ body {
     <!-- GRIGLIA CENTRALE 2x2 -->
     <div class="center-grid">
       <!-- PRESSIONE -->
-      <div class="panel">
+      <div class="panel panel-press">
         <div class="panel-header">
           <span class="panel-title">Pressione</span>
           <span class="panel-subtitle" id="press-minmax">--</span>
@@ -843,7 +860,7 @@ body {
       </div>
 
       <!-- TENDENZA METEO -->
-      <div class="panel">
+      <div class="panel panel-meteo">
         <div class="panel-header">
           <span class="panel-title">Tendenza meteo (6h)</span>
           <span class="panel-subtitle">ΔP 3h, UR, regole</span>
@@ -896,7 +913,7 @@ body {
       </div>
 
       <!-- TEMPERATURA -->
-      <div class="panel">
+      <div class="panel panel-temp">
         <div class="panel-header">
           <span class="panel-title">Temperatura INT / EXT</span>
           <span class="panel-subtitle" id="temp-minmax">--</span>
@@ -905,7 +922,7 @@ body {
       </div>
 
       <!-- UMIDITÀ -->
-      <div class="panel">
+      <div class="panel panel-hum">
         <div class="panel-header">
           <span class="panel-title">Umidità INT / EXT</span>
           <span class="panel-subtitle" id="hum-minmax">--</span>
