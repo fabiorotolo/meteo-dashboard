@@ -1072,41 +1072,56 @@ async function loadSunData() {
 
 async function loadMoonData() {
   try {
-    // Prova prima API Raspberry
-    const response = await fetch('http://192.168.1.30:5000/api/astro');
-    const data = await response.json();
+    const now = new Date();
     
-    if (data.moonrise && data.moonset && data.moon_progress !== undefined) {
-      // Parse orari (formato "HH:MM")
-      const now = new Date();
-      const [riseH, riseM] = data.moonrise.split(':').map(Number);
-      const [setH, setM] = data.moonset.split(':').map(Number);
-      
-      const moonrise = new Date(now);
-      moonrise.setHours(riseH, riseM, 0, 0);
-      
-      const moonset = new Date(now);
-      moonset.setHours(setH, setM, 0, 0);
-      
-      return {
-        moonrise,
-        moonset,
-        progress: data.moon_progress
-      };
+    // Usa SunCalc per calcolare moonrise/moonset
+    const moonTimes = SunCalc.getMoonTimes(now, LAT, LON);
+    
+    let moonrise = moonTimes.rise;
+    let moonset = moonTimes.set;
+    
+    // Calcola moon_progress
+    let progress = 0;
+    
+    if (moonrise && moonset) {
+      // Normalizza le date per oggi
+      if (moonrise < now && moonset > now) {
+        // Luna visibile ora
+        const totalTime = moonset - moonrise;
+        const elapsed = now - moonrise;
+        progress = elapsed / totalTime;
+      } else if (now > moonset) {
+        // Luna già tramontata
+        progress = 1;
+      } else {
+        // Luna non ancora sorta
+        progress = 0;
+      }
+    } else {
+      // Fallback: usa ora del giorno
+      progress = (now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()) / 86400;
     }
+    
+    progress = Math.max(0, Math.min(1, progress));
+    
+    return {
+      moonrise,
+      moonset,
+      progress
+    };
   } catch (error) {
-    console.log("API Raspberry non disponibile, uso calcolo approssimativo");
+    console.error("Errore calcolo moonrise/moonset:", error);
+    
+    // Fallback: calcolo approssimativo
+    const now = new Date();
+    const progress = (now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()) / 86400;
+    
+    return {
+      moonrise: null,
+      moonset: null,
+      progress: progress
+    };
   }
-  
-  // Fallback: calcolo approssimativo
-  const now = new Date();
-  const progress = (now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()) / 86400;
-  
-  return {
-    moonrise: null,
-    moonset: null,
-    progress: progress
-  };
 }
 
 async function updateAstroData() {
