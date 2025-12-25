@@ -272,8 +272,8 @@ body {
 
 .sun-indicator {
   position: absolute;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: radial-gradient(circle at 30% 30%, #fff9c4, #fdd835);
   box-shadow:
@@ -281,20 +281,38 @@ body {
     0 0 20px rgba(255, 200, 0, 0.6);
   transform: translateX(-50%);
   transition: all 0.3s ease;
+  z-index: 2;
 }
 
-.sun-times {
+.moon-indicator {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #f8f8ff, #c0c0d8);
+  box-shadow:
+    0 0 10px rgba(200, 200, 255, 0.8),
+    0 0 16px rgba(160, 160, 220, 0.5);
+  transform: translateX(-50%);
+  transition: all 0.3s ease;
+  z-index: 1;
+}
+
+.celestial-times {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-size: 13px;
   color: var(--text-soft);
   padding: 0 10px;
   font-weight: 500;
+  gap: 8px;
 }
 
-.sun-time-label {
+.time-label {
   font-family: "JetBrains Mono", Menlo, monospace;
   font-weight: 600;
+  color: var(--text-main);
 }
 
 /* FOOTER + META */
@@ -592,7 +610,7 @@ body {
     height: 55px;
   }
 
-  .sun-times {
+  .celestial-times {
     font-size: 9px;
     padding: 2px 10px 0;
     margin-top: 0;
@@ -854,15 +872,21 @@ body {
               </div>
             </div>
 
-            <!-- Arcobaleno sole -->
+            <!-- Arcobaleno sole e luna -->
             <div class="sun-arc-container">
               <div class="sun-arc-wrapper">
                 <div class="sun-arc"></div>
+                <!-- Sole -->
                 <div class="sun-indicator" id="sun-indicator"></div>
+                <!-- Luna -->
+                <div class="moon-indicator" id="moon-indicator"></div>
               </div>
-              <div class="sun-times">
-                <span>🌅 <span class="sun-time-label" id="sunrise-time">--:--</span></span>
-                <span>🌇 <span class="sun-time-label" id="sunset-time">--:--</span></span>
+              <!-- Orari orizzontali: sole esterno, luna interno -->
+              <div class="celestial-times">
+                <span>🌅 <span class="time-label" id="sunrise-time">--:--</span></span>
+                <span>🌔 <span class="time-label" id="moonrise-time">--:--</span></span>
+                <span>🌖 <span class="time-label" id="moonset-time">--:--</span></span>
+                <span>🌇 <span class="time-label" id="sunset-time">--:--</span></span>
               </div>
             </div>
           </div>
