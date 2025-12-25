@@ -956,6 +956,10 @@ async function loadAndRender() {
     document.getElementById("forecast-text").innerHTML = forecastText;
     document.getElementById("debug-dp3h").textContent = dp3hTxt;
 
+    // Aggiorna punti totali (TUTTI i punti scaricati, non filtrati)
+    const totalPoints = intFeeds.length + extFeeds.length;
+    document.getElementById("stat-total-points").textContent = totalPoints;
+
     status.textContent =
       `Range: ${currentRange} | Fine: ${fmtDateTime(currentEndTime)} | Punti INT: ${intFiltered.length}, EXT: ${extFiltered.length}`;
   } catch (err) {
