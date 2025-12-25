@@ -1070,6 +1070,45 @@ async function loadSunData() {
   };
 }
 
+async function loadMoonData() {
+  try {
+    // Prova prima API Raspberry
+    const response = await fetch('http://192.168.1.30:5000/api/astro');
+    const data = await response.json();
+    
+    if (data.moonrise && data.moonset && data.moon_progress !== undefined) {
+      // Parse orari (formato "HH:MM")
+      const now = new Date();
+      const [riseH, riseM] = data.moonrise.split(':').map(Number);
+      const [setH, setM] = data.moonset.split(':').map(Number);
+      
+      const moonrise = new Date(now);
+      moonrise.setHours(riseH, riseM, 0, 0);
+      
+      const moonset = new Date(now);
+      moonset.setHours(setH, setM, 0, 0);
+      
+      return {
+        moonrise,
+        moonset,
+        progress: data.moon_progress
+      };
+    }
+  } catch (error) {
+    console.log("API Raspberry non disponibile, uso calcolo approssimativo");
+  }
+  
+  // Fallback: calcolo approssimativo
+  const now = new Date();
+  const progress = (now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()) / 86400;
+  
+  return {
+    moonrise: null,
+    moonset: null,
+    progress: progress
+  };
+}
+
 async function updateAstroData() {
   try {
     const moon = calculateMoonPhase();
@@ -1103,12 +1142,47 @@ async function updateAstroData() {
       const leftPercent = progress * 100;
       const arcHeight = 50;
       const yPosition = Math.sin(progress * Math.PI) * arcHeight;
+      const yOffset = 8; // Sole più alto
       
       sunIndicatorEl.style.left = leftPercent + "%";
-      sunIndicatorEl.style.bottom = yPosition + "px";
+      sunIndicatorEl.style.bottom = (yPosition + yOffset) + "px";
     }
   } catch (error) {
     console.error("Errore aggiornamento dati sole:", error);
+  }
+  
+  // NUOVO: Aggiorna luna
+  try {
+    const moonData = await loadMoonData();
+    
+    const moonriseEl = document.getElementById("moonrise-time");
+    const moonsetEl = document.getElementById("moonset-time");
+    const moonIndicatorEl = document.getElementById("moon-indicator");
+    
+    if (moonriseEl) {
+      moonriseEl.textContent = moonData.moonrise 
+        ? moonData.moonrise.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })
+        : "--:--";
+    }
+    
+    if (moonsetEl) {
+      moonsetEl.textContent = moonData.moonset
+        ? moonData.moonset.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })
+        : "--:--";
+    }
+    
+    if (moonIndicatorEl) {
+      const progress = moonData.progress;
+      const leftPercent = progress * 100;
+      const arcHeight = 50;
+      const yPosition = Math.sin(progress * Math.PI) * arcHeight;
+      const yOffset = -6; // Luna più bassa
+      
+      moonIndicatorEl.style.left = leftPercent + "%";
+      moonIndicatorEl.style.bottom = (yPosition + yOffset) + "px";
+    }
+  } catch (error) {
+    console.error("Errore aggiornamento dati luna:", error);
   }
 }
 
