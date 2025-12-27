@@ -1078,31 +1078,60 @@ async function loadMoonData() {
   try {
     const now = new Date();
     
-    // Usa SunCalc per calcolare moonrise/moonset
-    const moonTimes = SunCalc.getMoonTimes(now, LAT, LON);
+    // Calcola per OGGI
+    const moonTimesToday = SunCalc.getMoonTimes(now, LAT, LON);
     
-    let moonrise = moonTimes.rise;
-    let moonset = moonTimes.set;
+    let moonrise = moonTimesToday.rise;
+    let moonset = moonTimesToday.set;
+    let moonsetIsNextDay = false;
+    let moonriseWasYesterday = false;
     
-    // Calcola moon_progress
+    // Se moonset è null, prova DOMANI
+    if (!moonset) {
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+      
+      const moonTimesTomorrow = SunCalc.getMoonTimes(tomorrow, LAT, LON);
+      
+      if (moonTimesTomorrow.set) {
+        moonset = moonTimesTomorrow.set;
+        moonsetIsNextDay = true;
+      }
+    }
+    
+    // Se moonrise è null, prova IERI
+    if (!moonrise) {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      yesterday.setHours(0, 0, 0, 0);
+      
+      const moonTimesYesterday = SunCalc.getMoonTimes(yesterday, LAT, LON);
+      
+      if (moonTimesYesterday.rise) {
+        moonrise = moonTimesYesterday.rise;
+        moonriseWasYesterday = true;
+      }
+    }
+    
+    // Calcola progress
     let progress = 0;
     
     if (moonrise && moonset) {
-      // Normalizza le date per oggi
       if (moonrise < now && moonset > now) {
-        // Luna visibile ora
         const totalTime = moonset - moonrise;
         const elapsed = now - moonrise;
         progress = elapsed / totalTime;
       } else if (now > moonset) {
-        // Luna già tramontata
         progress = 1;
       } else {
-        // Luna non ancora sorta
         progress = 0;
       }
+    } else if (moonrise && !moonset) {
+      const elapsed = now - moonrise;
+      const avgLunarDay = 24.8 * 3600 * 1000;
+      progress = Math.min(1, elapsed / avgLunarDay);
     } else {
-      // Fallback: usa ora del giorno
       progress = (now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()) / 86400;
     }
     
@@ -1111,18 +1140,21 @@ async function loadMoonData() {
     return {
       moonrise,
       moonset,
+      moonsetIsNextDay,      // 🆕 Flag per +1d
+      moonriseWasYesterday,  // 🆕 Flag per -1d
       progress
     };
   } catch (error) {
     console.error("Errore calcolo moonrise/moonset:", error);
     
-    // Fallback: calcolo approssimativo
     const now = new Date();
     const progress = (now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()) / 86400;
     
     return {
       moonrise: null,
       moonset: null,
+      moonsetIsNextDay: false,
+      moonriseWasYesterday: false,
       progress: progress
     };
   }
@@ -1170,7 +1202,7 @@ async function updateAstroData() {
     console.error("Errore aggiornamento dati sole:", error);
   }
   
-  // NUOVO: Aggiorna luna
+  // AGGIORNAMENTO LUNA CON -1d / +1d
   try {
     const moonData = await loadMoonData();
     
@@ -1178,16 +1210,42 @@ async function updateAstroData() {
     const moonsetEl = document.getElementById("moonset-time");
     const moonIndicatorEl = document.getElementById("moon-indicator");
     
+    // 🆕 Moonrise con -1d se era ieri
     if (moonriseEl) {
-      moonriseEl.textContent = moonData.moonrise 
-        ? moonData.moonrise.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })
-        : "--:--";
+      let moonriseText = "--:--";
+      
+      if (moonData.moonrise) {
+        const timeStr = moonData.moonrise.toLocaleTimeString("it-IT", { 
+          hour: "2-digit", 
+          minute: "2-digit" 
+        });
+        
+        // Aggiungi -1d se era ieri
+        moonriseText = moonData.moonriseWasYesterday 
+          ? `-1d ${timeStr}` 
+          : timeStr;
+      }
+      
+      moonriseEl.textContent = moonriseText;
     }
     
+    // 🆕 Moonset con +1d se è domani
     if (moonsetEl) {
-      moonsetEl.textContent = moonData.moonset
-        ? moonData.moonset.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })
-        : "--:--";
+      let moonsetText = "--:--";
+      
+      if (moonData.moonset) {
+        const timeStr = moonData.moonset.toLocaleTimeString("it-IT", { 
+          hour: "2-digit", 
+          minute: "2-digit" 
+        });
+        
+        // Aggiungi +1d se è domani
+        moonsetText = moonData.moonsetIsNextDay 
+          ? `+1d ${timeStr}` 
+          : timeStr;
+      }
+      
+      moonsetEl.textContent = moonsetText;
     }
     
     if (moonIndicatorEl) {
