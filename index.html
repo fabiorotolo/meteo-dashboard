@@ -293,28 +293,28 @@ body {
 }
 
 /* ================================
-   LUNA 6 - GRIGIO SCURO CON CRATERI
+   LUNA 4 - GRIGIO CHIARO CON CRATERI
    ================================ */
 .moon-indicator {
   position: absolute;
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  /* Grigio medio-scuro */
+  /* Grigio medio-chiaro */
   background: 
     radial-gradient(circle at 38% 32%, 
-      #d0d0d8 0%,
-      #b0b0c0 30%,
-      #909098 60%,
-      #707078 100%
+      #ececf2 0%,
+      #d8d8e2 30%,
+      #c0c0d0 60%,
+      #a8a8b8 100%
     );
   transform: translateX(-50%);
   transition: all 0.3s ease;
   z-index: 1;
   box-shadow:
-    0 0 10px rgba(180, 180, 200, 0.6),
-    0 0 5px rgba(200, 200, 220, 0.4),
-    inset -4px -4px 8px rgba(0, 0, 0, 0.18);
+    0 0 14px rgba(220, 220, 235, 0.7),
+    0 0 8px rgba(230, 230, 245, 0.5),
+    inset -3px -3px 6px rgba(0, 0, 0, 0.12);
 }
 
 /* Crateri ben visibili */
@@ -325,13 +325,13 @@ body {
   border-radius: 50%;
   background-image: 
     /* Cratere Tycho (grande, alto) */
-    radial-gradient(circle 3px at 40% 22%, rgba(80, 80, 100, 0.55) 30%, transparent 70%),
+    radial-gradient(circle 3px at 40% 22%, rgba(140, 140, 160, 0.45) 30%, transparent 70%),
     /* Mare Tranquillitatis (macchia scura centro) */
-    radial-gradient(ellipse 8px 6px at 45% 55%, rgba(100, 100, 120, 0.35) 40%, transparent 80%),
+    radial-gradient(ellipse 8px 6px at 45% 55%, rgba(155, 155, 175, 0.28) 40%, transparent 80%),
     /* Cratere Copernicus (medio, sx) */
-    radial-gradient(circle 4px at 28% 45%, rgba(85, 85, 105, 0.45) 35%, transparent 75%),
+    radial-gradient(circle 4px at 28% 45%, rgba(145, 145, 165, 0.38) 35%, transparent 75%),
     /* Cratere Plato (piccolo, alto-dx) */
-    radial-gradient(circle 2.5px at 65% 30%, rgba(90, 90, 110, 0.42) 40%, transparent 80%);
+    radial-gradient(circle 2.5px at 65% 30%, rgba(150, 150, 170, 0.35) 40%, transparent 80%);
 }
 
 /* Micro-crateri */
@@ -341,14 +341,14 @@ body {
   width: 2px;
   height: 2px;
   border-radius: 50%;
-  background: rgba(70, 70, 90, 0.45);
+  background: rgba(130, 130, 150, 0.35);
   top: 38%;
   left: 58%;
   box-shadow:
-    -8px 8px 0 0 rgba(70, 70, 90, 0.45),
-    12px -4px 0 0 rgba(70, 70, 90, 0.45),
-    -4px -10px 0 0 rgba(70, 70, 90, 0.45),
-    10px 10px 0 0 rgba(70, 70, 90, 0.45);
+    -8px 8px 0 0 rgba(130, 130, 150, 0.35),
+    12px -4px 0 0 rgba(130, 130, 150, 0.35),
+    -4px -10px 0 0 rgba(130, 130, 150, 0.35),
+    10px 10px 0 0 rgba(130, 130, 150, 0.35);
 }
 
 .celestial-times {
