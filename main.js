@@ -1169,29 +1169,19 @@ async function loadMoonData() {
     let progress = 0;
     
     if (moonrise && moonset) {
-      // Usa solo eventi di OGGI per calcolare progress
-      const riseIsToday = !moonriseIsNextDay && !moonriseWasYesterday;
-      const setIsToday = !moonsetIsNextDay && !moonsetWasYesterday;
-      
-      if (riseIsToday && setIsToday) {
-        // Luna completamente visibile oggi
-        if (moonrise < now && moonset > now) {
-          const totalTime = moonset - moonrise;
-          const elapsed = now - moonrise;
-          progress = elapsed / totalTime;
-        } else if (now > moonset) {
-          progress = 1; // Tramontata
-        } else {
-          progress = 0; // Non ancora sorta
-        }
-      } else if (riseIsToday && !setIsToday) {
-        // Sorge oggi ma tramonta altro giorno
-        const elapsed = now - moonrise;
-        const avgLunarDay = 24.8 * 3600 * 1000;
-        progress = Math.min(1, elapsed / avgLunarDay);
+      // Calcola progress in base a posizione tra rise e set
+      // (funziona anche se set è domani!)
+      if (now < moonrise) {
+        // Luna non ancora sorta
+        progress = 0;
+      } else if (now >= moonset) {
+        // Luna già tramontata
+        progress = 1;
       } else {
-        // Eventi di altri giorni - usa ora del giorno
-        progress = (now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()) / 86400;
+        // Luna visibile: calcola posizione nell'arco
+        const totalTime = moonset - moonrise;
+        const elapsed = now - moonrise;
+        progress = elapsed / totalTime;
       }
     } else {
       // Fallback: usa ora del giorno
@@ -1359,25 +1349,23 @@ async function updateAstroData() {
       moonIndicatorEl.style.left = leftPercent + "%";
       moonIndicatorEl.style.bottom = (yPosition + yOffset) + "px";
       
-      // Opacità dinamica (solo se Luna è di OGGI)
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // OPACITÀ DINAMICA
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // LOGICA: Luna opaca (1) se visibile ORA
+      //         Trasparente (0.2) se non visibile
       const now = new Date();
       if (moonData.moonrise && moonData.moonset) {
-        const riseIsToday = !moonData.moonriseIsNextDay && !moonData.moonriseWasYesterday;
-        const setIsToday = !moonData.moonsetIsNextDay && !moonData.moonsetWasYesterday;
-        
-        if (riseIsToday && setIsToday) {
-          // Luna completamente visibile oggi
-          if (now < moonData.moonrise || now > moonData.moonset) {
-            moonIndicatorEl.style.opacity = "0.2";
-          } else {
-            moonIndicatorEl.style.opacity = "1";
-          }
+        // Luna visibile se: ora >= sorgere E ora < tramonto
+        // (non importa se rise/set sono oggi o domani!)
+        if (now >= moonData.moonrise && now < moonData.moonset) {
+          moonIndicatorEl.style.opacity = "1";  // Luna visibile!
         } else {
-          // Luna parziale (sorge/tramonta altri giorni)
-          moonIndicatorEl.style.opacity = "0.5";
+          moonIndicatorEl.style.opacity = "0.2";  // Luna non visibile
         }
       } else {
-        moonIndicatorEl.style.opacity = "1";
+        // Fallback se mancano dati
+        moonIndicatorEl.style.opacity = "0.5";
       }
     }
   } catch (error) {
