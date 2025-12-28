@@ -272,7 +272,7 @@ body {
   opacity: 0.6;
 }
 
-/* ================================
+//* ================================
    SOLE - EMOJI 
    ================================ */
 .sun-indicator {
@@ -952,12 +952,33 @@ body {
                 <div class="moon-indicator" id="moon-indicator"></div>
               </div>
               <!-- Orari orizzontali: sole esterno, luna interno -->
-              <div class="celestial-times">
-                <span>🌅 <span class="time-label" id="sunrise-time">--:--</span></span>
-                <span>🌔 <span class="time-label" id="moonrise-time">--:--</span></span>
-                <span>🌖 <span class="time-label" id="moonset-time">--:--</span></span>
-                <span>🌇 <span class="time-label" id="sunset-time">--:--</span></span>
-              </div>
+			  <!-- Orari Sole -->
+			  <div class="celestial-times">
+ 			   <div class="celestial-time">
+ 			     <span class="time-icon">🌅</span>
+ 			     <span class="time-value" id="sunrise-time">--:--</span>
+ 			   </div>
+ 			   <div class="celestial-time">
+			      <span class="time-icon">🌇</span>
+			      <span class="time-value" id="sunset-time">--:--</span>
+			    </div>
+			  </div>
+			  
+			  <!-- Orari Luna -->
+			  <div class="celestial-times" style="margin-top: 8px;">
+ 			   <div class="celestial-time">
+ 			     <span class="time-icon">🌔</span>
+ 			     <span class="time-value" id="moonrise-time">--:--</span>
+ 			   </div>
+ 			   <div class="celestial-time">
+ 			     <span class="time-icon">🌕</span>
+ 			     <span class="time-value" id="moontransit-time">--:--</span>
+ 			   </div>
+ 			   <div class="celestial-time">
+			      <span class="time-icon">🌖</span>
+			      <span class="time-value" id="moonset-time">--:--</span>
+			    </div>
+			  </div>
             </div>
           </div>
         </div>
