@@ -1074,6 +1074,11 @@ async function loadSunData() {
   };
 }
 
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CALCOLA DATI LUNA (sorgere e tramonto)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 async function loadMoonData() {
   try {
     const now = new Date();
@@ -1083,14 +1088,11 @@ async function loadMoonData() {
     
     let moonrise = moonTimesToday.rise;
     let moonset = moonTimesToday.set;
-    let moontransit = moonTimesToday.transit;  // 🆕 Culminazione
     
     let moonriseIsNextDay = false;
     let moonriseWasYesterday = false;
     let moonsetIsNextDay = false;
     let moonsetWasYesterday = false;
-    let moontransitIsNextDay = false;      // 🆕
-    let moontransitWasYesterday = false;   // 🆕
     
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // GESTIONE MOONRISE
@@ -1157,38 +1159,6 @@ async function loadMoonData() {
     }
     
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // 🆕 GESTIONE MOONTRANSIT (Culminazione)
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    
-    // Se moontransit è passato o null, cerca DOMANI
-    if (!moontransit || (moontransit && moontransit < now)) {
-      const tomorrow = new Date(now);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(0, 0, 0, 0);
-      
-      const moonTimesTomorrow = SunCalc.getMoonTimes(tomorrow, LAT, LON);
-      
-      if (moonTimesTomorrow.transit) {
-        moontransit = moonTimesTomorrow.transit;
-        moontransitIsNextDay = true;
-      }
-    }
-    
-    // Se ancora null, prova IERI
-    if (!moontransit) {
-      const yesterday = new Date(now);
-      yesterday.setDate(yesterday.getDate() - 1);
-      yesterday.setHours(0, 0, 0, 0);
-      
-      const moonTimesYesterday = SunCalc.getMoonTimes(yesterday, LAT, LON);
-      
-      if (moonTimesYesterday.transit) {
-        moontransit = moonTimesYesterday.transit;
-        moontransitWasYesterday = true;
-      }
-    }
-    
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // CALCOLO PROGRESS (Posizione arco)
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     
@@ -1229,13 +1199,10 @@ async function loadMoonData() {
     return {
       moonrise,
       moonset,
-      moontransit,              // 🆕
       moonriseIsNextDay,
       moonriseWasYesterday,
       moonsetIsNextDay,
       moonsetWasYesterday,
-      moontransitIsNextDay,     // 🆕
-      moontransitWasYesterday,  // 🆕
       progress
     };
   } catch (error) {
@@ -1247,13 +1214,10 @@ async function loadMoonData() {
     return {
       moonrise: null,
       moonset: null,
-      moontransit: null,
       moonriseIsNextDay: false,
       moonriseWasYesterday: false,
       moonsetIsNextDay: false,
       moonsetWasYesterday: false,
-      moontransitIsNextDay: false,
-      moontransitWasYesterday: false,
       progress: progress
     };
   }
@@ -1321,13 +1285,12 @@ async function updateAstroData() {
   }
   
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // LUNA CON CULMINAZIONE
+  // LUNA (sorgere e tramonto)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   try {
     const moonData = await loadMoonData();
     
     const moonriseEl = document.getElementById("moonrise-time");
-    const moontransitEl = document.getElementById("moontransit-time");
     const moonsetEl = document.getElementById("moonset-time");
     const moonIndicatorEl = document.getElementById("moon-indicator");
     
@@ -1353,30 +1316,6 @@ async function updateAstroData() {
       }
       
       moonriseEl.textContent = moonriseText;
-    }
-    
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // MOONTRANSIT (Culminazione) con -1d / +1d
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    if (moontransitEl) {
-      let moontransitText = "--:--";
-      
-      if (moonData.moontransit) {
-        const timeStr = moonData.moontransit.toLocaleTimeString("it-IT", { 
-          hour: "2-digit", 
-          minute: "2-digit" 
-        });
-        
-        if (moonData.moontransitIsNextDay) {
-          moontransitText = `+1d ${timeStr}`;
-        } else if (moonData.moontransitWasYesterday) {
-          moontransitText = `-1d ${timeStr}`;
-        } else {
-          moontransitText = timeStr;
-        }
-      }
-      
-      moontransitEl.textContent = moontransitText;
     }
     
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
