@@ -1097,9 +1097,11 @@ async function loadMoonData() {
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // GESTIONE MOONRISE
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // LOGICA: Mostra sempre moonrise di OGGI (anche se passato)
+    //         Solo se NON esiste oggi, cerca domani o ieri
     
-    // Se moonrise è passato o null, cerca DOMANI
-    if (!moonrise || (moonrise && moonrise < now)) {
+    // Se moonrise NON esiste oggi, cerca DOMANI
+    if (!moonrise) {
       const tomorrow = new Date(now);
       tomorrow.setDate(tomorrow.getDate() + 1);
       tomorrow.setHours(0, 0, 0, 0);
@@ -1129,6 +1131,8 @@ async function loadMoonData() {
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // GESTIONE MOONSET
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // LOGICA: Mostra sempre il PROSSIMO tramonto futuro
+    //         Se è passato oggi, cerca domani
     
     // Se moonset è passato o null, cerca DOMANI
     if (!moonset || (moonset && moonset < now)) {
