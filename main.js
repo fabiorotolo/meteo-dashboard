@@ -1083,24 +1083,34 @@ async function loadMoonData() {
     
     let moonrise = moonTimesToday.rise;
     let moonset = moonTimesToday.set;
-    let moonsetIsNextDay = false;
-    let moonriseWasYesterday = false;
+    let moontransit = moonTimesToday.transit;  // 🆕 Culminazione
     
-    // Se moonset è null, prova DOMANI
-    if (!moonset) {
+    let moonriseIsNextDay = false;
+    let moonriseWasYesterday = false;
+    let moonsetIsNextDay = false;
+    let moonsetWasYesterday = false;
+    let moontransitIsNextDay = false;      // 🆕
+    let moontransitWasYesterday = false;   // 🆕
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // GESTIONE MOONRISE
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    // Se moonrise è passato o null, cerca DOMANI
+    if (!moonrise || (moonrise && moonrise < now)) {
       const tomorrow = new Date(now);
       tomorrow.setDate(tomorrow.getDate() + 1);
       tomorrow.setHours(0, 0, 0, 0);
       
       const moonTimesTomorrow = SunCalc.getMoonTimes(tomorrow, LAT, LON);
       
-      if (moonTimesTomorrow.set) {
-        moonset = moonTimesTomorrow.set;
-        moonsetIsNextDay = true;
+      if (moonTimesTomorrow.rise) {
+        moonrise = moonTimesTomorrow.rise;
+        moonriseIsNextDay = true;
       }
     }
     
-    // Se moonrise è null, prova IERI
+    // Se ancora null, prova IERI
     if (!moonrise) {
       const yesterday = new Date(now);
       yesterday.setDate(yesterday.getDate() - 1);
@@ -1114,24 +1124,103 @@ async function loadMoonData() {
       }
     }
     
-    // Calcola progress
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // GESTIONE MOONSET
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    // Se moonset è passato o null, cerca DOMANI
+    if (!moonset || (moonset && moonset < now)) {
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+      
+      const moonTimesTomorrow = SunCalc.getMoonTimes(tomorrow, LAT, LON);
+      
+      if (moonTimesTomorrow.set) {
+        moonset = moonTimesTomorrow.set;
+        moonsetIsNextDay = true;
+      }
+    }
+    
+    // Se ancora null, prova IERI
+    if (!moonset) {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      yesterday.setHours(0, 0, 0, 0);
+      
+      const moonTimesYesterday = SunCalc.getMoonTimes(yesterday, LAT, LON);
+      
+      if (moonTimesYesterday.set) {
+        moonset = moonTimesYesterday.set;
+        moonsetWasYesterday = true;
+      }
+    }
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 🆕 GESTIONE MOONTRANSIT (Culminazione)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    // Se moontransit è passato o null, cerca DOMANI
+    if (!moontransit || (moontransit && moontransit < now)) {
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+      
+      const moonTimesTomorrow = SunCalc.getMoonTimes(tomorrow, LAT, LON);
+      
+      if (moonTimesTomorrow.transit) {
+        moontransit = moonTimesTomorrow.transit;
+        moontransitIsNextDay = true;
+      }
+    }
+    
+    // Se ancora null, prova IERI
+    if (!moontransit) {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      yesterday.setHours(0, 0, 0, 0);
+      
+      const moonTimesYesterday = SunCalc.getMoonTimes(yesterday, LAT, LON);
+      
+      if (moonTimesYesterday.transit) {
+        moontransit = moonTimesYesterday.transit;
+        moontransitWasYesterday = true;
+      }
+    }
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // CALCOLO PROGRESS (Posizione arco)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
     let progress = 0;
     
     if (moonrise && moonset) {
-      if (moonrise < now && moonset > now) {
-        const totalTime = moonset - moonrise;
+      // Usa solo eventi di OGGI per calcolare progress
+      const riseIsToday = !moonriseIsNextDay && !moonriseWasYesterday;
+      const setIsToday = !moonsetIsNextDay && !moonsetWasYesterday;
+      
+      if (riseIsToday && setIsToday) {
+        // Luna completamente visibile oggi
+        if (moonrise < now && moonset > now) {
+          const totalTime = moonset - moonrise;
+          const elapsed = now - moonrise;
+          progress = elapsed / totalTime;
+        } else if (now > moonset) {
+          progress = 1; // Tramontata
+        } else {
+          progress = 0; // Non ancora sorta
+        }
+      } else if (riseIsToday && !setIsToday) {
+        // Sorge oggi ma tramonta altro giorno
         const elapsed = now - moonrise;
-        progress = elapsed / totalTime;
-      } else if (now > moonset) {
-        progress = 1;
+        const avgLunarDay = 24.8 * 3600 * 1000;
+        progress = Math.min(1, elapsed / avgLunarDay);
       } else {
-        progress = 0;
+        // Eventi di altri giorni - usa ora del giorno
+        progress = (now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()) / 86400;
       }
-    } else if (moonrise && !moonset) {
-      const elapsed = now - moonrise;
-      const avgLunarDay = 24.8 * 3600 * 1000;
-      progress = Math.min(1, elapsed / avgLunarDay);
     } else {
+      // Fallback: usa ora del giorno
       progress = (now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()) / 86400;
     }
     
@@ -1140,12 +1229,17 @@ async function loadMoonData() {
     return {
       moonrise,
       moonset,
-      moonsetIsNextDay,      // 🆕 Flag per +1d
-      moonriseWasYesterday,  // 🆕 Flag per -1d
+      moontransit,              // 🆕
+      moonriseIsNextDay,
+      moonriseWasYesterday,
+      moonsetIsNextDay,
+      moonsetWasYesterday,
+      moontransitIsNextDay,     // 🆕
+      moontransitWasYesterday,  // 🆕
       progress
     };
   } catch (error) {
-    console.error("Errore calcolo moonrise/moonset:", error);
+    console.error("Errore calcolo dati Luna:", error);
     
     const now = new Date();
     const progress = (now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()) / 86400;
@@ -1153,14 +1247,27 @@ async function loadMoonData() {
     return {
       moonrise: null,
       moonset: null,
-      moonsetIsNextDay: false,
+      moontransit: null,
+      moonriseIsNextDay: false,
       moonriseWasYesterday: false,
+      moonsetIsNextDay: false,
+      moonsetWasYesterday: false,
+      moontransitIsNextDay: false,
+      moontransitWasYesterday: false,
       progress: progress
     };
   }
 }
 
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// AGGIORNA DATI ASTRONOMICI (Sole e Luna)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 async function updateAstroData() {
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // FASE LUNARE
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   try {
     const moon = calculateMoonPhase();
     
@@ -1175,7 +1282,9 @@ async function updateAstroData() {
     console.error("Errore aggiornamento fase lunare:", error);
   }
   
-  // SOLE CON OPACITÀ DINAMICA
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // SOLE
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   try {
     const sun = await loadSunData();
     
@@ -1194,32 +1303,37 @@ async function updateAstroData() {
       const leftPercent = progress * 100;
       const arcHeight = 50;
       const yPosition = Math.sin(progress * Math.PI) * arcHeight;
-      const yOffset = 8; // Sole più alto
+      const yOffset = 8;
       
       sunIndicatorEl.style.left = leftPercent + "%";
       sunIndicatorEl.style.bottom = (yPosition + yOffset) + "px";
       
-      // 🆕 OPACITÀ DINAMICA: trasparente se non visibile
+      // Opacità dinamica
       const now = new Date();
       if (now < sun.sunrise || now > sun.sunset) {
-        sunIndicatorEl.style.opacity = "0.2";  // Trasparente (non visibile)
+        sunIndicatorEl.style.opacity = "0.2";
       } else {
-        sunIndicatorEl.style.opacity = "1";    // Opaco (visibile)
+        sunIndicatorEl.style.opacity = "1";
       }
     }
   } catch (error) {
     console.error("Errore aggiornamento dati sole:", error);
   }
   
-  // LUNA CON OPACITÀ DINAMICA E -1d / +1d
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // LUNA CON CULMINAZIONE
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   try {
     const moonData = await loadMoonData();
     
     const moonriseEl = document.getElementById("moonrise-time");
+    const moontransitEl = document.getElementById("moontransit-time");
     const moonsetEl = document.getElementById("moonset-time");
     const moonIndicatorEl = document.getElementById("moon-indicator");
     
-    // 🆕 Moonrise con -1d se era ieri
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // MOONRISE con -1d / +1d
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if (moonriseEl) {
       let moonriseText = "--:--";
       
@@ -1229,16 +1343,45 @@ async function updateAstroData() {
           minute: "2-digit" 
         });
         
-        // Aggiungi -1d se era ieri
-        moonriseText = moonData.moonriseWasYesterday 
-          ? `-1d ${timeStr}` 
-          : timeStr;
+        if (moonData.moonriseIsNextDay) {
+          moonriseText = `+1d ${timeStr}`;
+        } else if (moonData.moonriseWasYesterday) {
+          moonriseText = `-1d ${timeStr}`;
+        } else {
+          moonriseText = timeStr;
+        }
       }
       
       moonriseEl.textContent = moonriseText;
     }
     
-    // 🆕 Moonset con +1d se è domani
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // MOONTRANSIT (Culminazione) con -1d / +1d
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (moontransitEl) {
+      let moontransitText = "--:--";
+      
+      if (moonData.moontransit) {
+        const timeStr = moonData.moontransit.toLocaleTimeString("it-IT", { 
+          hour: "2-digit", 
+          minute: "2-digit" 
+        });
+        
+        if (moonData.moontransitIsNextDay) {
+          moontransitText = `+1d ${timeStr}`;
+        } else if (moonData.moontransitWasYesterday) {
+          moontransitText = `-1d ${timeStr}`;
+        } else {
+          moontransitText = timeStr;
+        }
+      }
+      
+      moontransitEl.textContent = moontransitText;
+    }
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // MOONSET con -1d / +1d
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if (moonsetEl) {
       let moonsetText = "--:--";
       
@@ -1248,36 +1391,50 @@ async function updateAstroData() {
           minute: "2-digit" 
         });
         
-        // Aggiungi +1d se è domani
-        moonsetText = moonData.moonsetIsNextDay 
-          ? `+1d ${timeStr}` 
-          : timeStr;
+        if (moonData.moonsetIsNextDay) {
+          moonsetText = `+1d ${timeStr}`;
+        } else if (moonData.moonsetWasYesterday) {
+          moonsetText = `-1d ${timeStr}`;
+        } else {
+          moonsetText = timeStr;
+        }
       }
       
       moonsetEl.textContent = moonsetText;
     }
     
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // INDICATORE LUNA (posizione arco)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if (moonIndicatorEl) {
       const progress = moonData.progress;
       const leftPercent = progress * 100;
       const arcHeight = 50;
       const yPosition = Math.sin(progress * Math.PI) * arcHeight;
-      const yOffset = -6; // Luna più bassa
+      const yOffset = -6;
       
       moonIndicatorEl.style.left = leftPercent + "%";
       moonIndicatorEl.style.bottom = (yPosition + yOffset) + "px";
       
-      // 🆕 OPACITÀ DINAMICA: trasparente se non visibile
+      // Opacità dinamica (solo se Luna è di OGGI)
       const now = new Date();
       if (moonData.moonrise && moonData.moonset) {
-        if (now < moonData.moonrise || now > moonData.moonset) {
-          moonIndicatorEl.style.opacity = "0.2";  // Trasparente (non visibile)
+        const riseIsToday = !moonData.moonriseIsNextDay && !moonData.moonriseWasYesterday;
+        const setIsToday = !moonData.moonsetIsNextDay && !moonData.moonsetWasYesterday;
+        
+        if (riseIsToday && setIsToday) {
+          // Luna completamente visibile oggi
+          if (now < moonData.moonrise || now > moonData.moonset) {
+            moonIndicatorEl.style.opacity = "0.2";
+          } else {
+            moonIndicatorEl.style.opacity = "1";
+          }
         } else {
-          moonIndicatorEl.style.opacity = "1";    // Opaco (visibile)
+          // Luna parziale (sorge/tramonta altri giorni)
+          moonIndicatorEl.style.opacity = "0.5";
         }
       } else {
-        // Fallback: usa progress (0-1 = visibile)
-        moonIndicatorEl.style.opacity = (progress >= 0 && progress <= 1) ? "1" : "0.2";
+        moonIndicatorEl.style.opacity = "1";
       }
     }
   } catch (error) {
