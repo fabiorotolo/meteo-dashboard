@@ -47,11 +47,11 @@ const LIMITS = {
 };
 
 const DELTA_LIMITS = {
-  tempInt: 3.0,
-  tempExt: 4.0,
-  press:   4.0,
-  humInt:  10,
-  humExt:  15
+  tempInt: 10.0,
+  tempExt: 10.0,
+  press:   6.0,
+  humInt:  20,
+  humExt:  20
 };
 
 function isValid(v, lim) {
