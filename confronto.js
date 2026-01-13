@@ -476,14 +476,29 @@ function setupDayButtons() {
 }
 
 function setupSensorButton() {
-  const btn = document.getElementById("btn-sensor");
+  const btnInt = document.getElementById("btn-int");
+  const btnExt = document.getElementById("btn-ext");
   
-  btn.addEventListener("click", () => {
-    currentSensor = currentSensor === 'INT' ? 'EXT' : 'INT';
-    btn.textContent = currentSensor;
-    renderCharts();
-    document.getElementById("status-bar").textContent = 
-      `Confronto ${currentDays} giorni - Sensori ${currentSensor}`;
+  btnInt.addEventListener("click", () => {
+    if (currentSensor !== 'INT') {
+      currentSensor = 'INT';
+      btnInt.classList.add('active');
+      btnExt.classList.remove('active');
+      renderCharts();
+      document.getElementById("status-bar").textContent = 
+        `Confronto ${currentDays} giorni - Sensori ${currentSensor}`;
+    }
+  });
+  
+  btnExt.addEventListener("click", () => {
+    if (currentSensor !== 'EXT') {
+      currentSensor = 'EXT';
+      btnExt.classList.add('active');
+      btnInt.classList.remove('active');
+      renderCharts();
+      document.getElementById("status-bar").textContent = 
+        `Confronto ${currentDays} giorni - Sensori ${currentSensor}`;
+    }
   });
 }
 
