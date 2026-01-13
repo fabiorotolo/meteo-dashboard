@@ -384,13 +384,25 @@ function renderCharts() {
 
 function setupDayButtons() {
   const btns = document.querySelectorAll(".btn-range");
+  
+  // Funzione per aggiornare lo stato dei pulsanti
+  function updateButtonStates(selectedDays) {
+    btns.forEach(b => {
+      const btnDays = parseInt(b.dataset.days);
+      // Attiva tutti i pulsanti da 1 fino al giorno selezionato
+      b.classList.toggle("active", btnDays <= selectedDays);
+    });
+  }
+  
+  // Inizializza lo stato
+  updateButtonStates(currentDays);
+  
   btns.forEach(btn => {
     const days = parseInt(btn.dataset.days);
-    if (days === currentDays) btn.classList.add("active");
     
     btn.addEventListener("click", () => {
       currentDays = days;
-      btns.forEach(b => b.classList.toggle("active", parseInt(b.dataset.days) === days));
+      updateButtonStates(days);
       renderCharts();
       document.getElementById("status-bar").textContent = 
         `Confronto ${currentDays} giorni - Sensori ${currentSensor}`;
