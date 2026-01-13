@@ -190,6 +190,70 @@ function renderComparisonChart(elementId, title, dayGroups, unit) {
                    `<extra></extra>`
   }));
 
+  // Calcola annotazioni MIN/MAX per ogni giorno
+  const annotations = [];
+  dayGroups.forEach(group => {
+    if (group.data.length === 0) return;
+    
+    const values = group.data.map(p => p.y);
+    const minVal = Math.min(...values);
+    const maxVal = Math.max(...values);
+    
+    // Trova la posizione X del minimo e massimo
+    const minPoint = group.data.find(p => p.y === minVal);
+    const maxPoint = group.data.find(p => p.y === maxVal);
+    
+    // Annotazione MIN
+    if (minPoint) {
+      annotations.push({
+        x: minPoint.x,
+        y: minVal,
+        text: `${minVal.toFixed(1)}`,
+        showarrow: true,
+        arrowhead: 2,
+        arrowsize: 1,
+        arrowwidth: 1.5,
+        arrowcolor: group.color,
+        ax: 0,
+        ay: 25,
+        font: {
+          size: 10,
+          color: group.color,
+          family: "JetBrains Mono, monospace"
+        },
+        bgcolor: "rgba(0, 0, 0, 0.7)",
+        bordercolor: group.color,
+        borderwidth: 1,
+        borderpad: 3
+      });
+    }
+    
+    // Annotazione MAX
+    if (maxPoint) {
+      annotations.push({
+        x: maxPoint.x,
+        y: maxVal,
+        text: `${maxVal.toFixed(1)}`,
+        showarrow: true,
+        arrowhead: 2,
+        arrowsize: 1,
+        arrowwidth: 1.5,
+        arrowcolor: group.color,
+        ax: 0,
+        ay: -25,
+        font: {
+          size: 10,
+          color: group.color,
+          family: "JetBrains Mono, monospace"
+        },
+        bgcolor: "rgba(0, 0, 0, 0.7)",
+        bordercolor: group.color,
+        borderwidth: 1,
+        borderpad: 3
+      });
+    }
+  });
+
   const layout = {
     paper_bgcolor: "rgba(0, 0, 0, 0)",
     plot_bgcolor: "rgba(0, 0, 0, 0)",
@@ -214,7 +278,8 @@ function renderComparisonChart(elementId, title, dayGroups, unit) {
       x: 0,
       y: 1.15,
       font: { size: 10 }
-    }
+    },
+    annotations: annotations
   };
 
   const config = {
