@@ -494,9 +494,9 @@ body {
 .btn-sensor {
   padding: 6px 16px;
   border-radius: 999px;
-  border: 2px solid var(--accent);
-  background: var(--accent-soft);
-  color: var(--text-main);
+  border: 2px solid #3a3d4a;
+  background: #1d2337;
+  color: var(--text-soft);
   cursor: pointer;
   font-size: 13px;
   transition: all 0.15s;
@@ -506,8 +506,24 @@ body {
 }
 
 .btn-sensor:hover {
-  background: var(--accent);
-  box-shadow: 0 0 12px rgba(61, 124, 255, 0.5);
+  border-color: #4a4d5a;
+  color: var(--text-main);
+}
+
+/* INT attivo = ROSSO */
+.btn-sensor-int.active {
+  border-color: #ff5c5c;
+  background: #ff5c5c;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(255, 92, 92, 0.6);
+}
+
+/* EXT attivo = BLU */
+.btn-sensor-ext.active {
+  border-color: #3d7cff;
+  background: #3d7cff;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(61, 124, 255, 0.6);
 }
 
 /* RESPONSIVE */
@@ -538,6 +554,20 @@ body {
   
   .footer-center {
     gap: 3px !important;
+  }
+  
+  .btn-sensor {
+    padding: 5px 12px !important;
+    font-size: 12px !important;
+  }
+  
+  .btn-small {
+    padding: 5px 10px !important;
+    font-size: 11px !important;
+  }
+  
+  .footer-right {
+    gap: 6px !important;
   }
 }
 
@@ -787,7 +817,8 @@ body {
         <button class="btn-range btn-day-7" data-days="7">7gg</button>
       </div>
       <div class="footer-right">
-        <button class="btn-sensor" id="btn-sensor">INT</button>
+        <button class="btn-sensor btn-sensor-int active" id="btn-int">INT</button>
+        <button class="btn-sensor btn-sensor-ext" id="btn-ext">EXT</button>
         <button class="btn-small" type="button" onclick="window.location.href='index.html'">
           ← Vista normale
         </button>
