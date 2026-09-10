@@ -34,18 +34,43 @@ const POWER_LIMIT = { min: -50, max: 20000 };
 const ENERGY_LIMIT = { min: -1, max: 20000 };
 
 // ========================
-// TARIFFA - da bolletta Enel "Scegli Tu" (MONORARIO)
-// Aggiorna questi valori quando arriva una bolletta nuova o cambia offerta.
-// Fattura di riferimento: periodo 01/06/2026-31/07/2026, n. 5461487545
+// TARIFFA - caricata da tariffa.json (elenco periodi), non più hardcoded qui.
+// Ad ogni bolletta nuova, aggiungi una riga a tariffa.json invece di toccare
+// questo file: lo script usa sempre l'ultimo periodo valido rispetto ad oggi.
 // ========================
-const TARIFFA = {
-  prezzo_energia_kwh: 0.234817,
-  quota_fissa_mese: 13.785472,
-  quota_potenza_kw_mese: 1.944262,
-  potenza_impegnata_kw: 3.0,
-  accisa_kwh: 0.0227,
-  iva: 0.10
-};
+let TARIFFA_STORICO = [];
+
+async function loadTariffaStorico() {
+  try {
+    const res = await fetch("tariffa.json");
+    if (!res.ok) throw new Error("Errore HTTP " + res.status);
+    const dati = await res.json();
+    // Ordina per data crescente, cosi' l'ultima valida e' sempre in fondo
+    dati.sort((a, b) => new Date(a.valido_dal) - new Date(b.valido_dal));
+    return dati;
+  } catch (err) {
+    console.error("Impossibile caricare tariffa.json, uso valori di riserva:", err);
+    // Valori di riserva (bolletta giu-lug 2026), usati solo se tariffa.json non e' raggiungibile
+    return [{
+      valido_dal: "2026-06-01",
+      prezzo_energia_kwh: 0.234817,
+      quota_fissa_mese: 13.785472,
+      quota_potenza_kw_mese: 1.944262,
+      potenza_impegnata_kw: 3.0,
+      accisa_kwh: 0.0227,
+      iva: 0.10
+    }];
+  }
+}
+
+// Ritorna il periodo tariffario applicabile a una data: l'ultimo con
+// valido_dal <= data. Se la data e' precedente al primo periodo noto,
+// usa comunque il primo disponibile (meglio di niente).
+function getTariffaPerData(date) {
+  const applicabili = TARIFFA_STORICO.filter(t => new Date(t.valido_dal) <= date);
+  if (applicabili.length) return applicabili[applicabili.length - 1];
+  return TARIFFA_STORICO[0];
+}
 
 let currentRange = "1d";
 let currentEndTime = new Date();
@@ -218,18 +243,19 @@ function buildMinMaxMarkers(points, color) {
 // CALCOLO COSTI STIMATI
 // ========================
 
-function costoEnergiaSenzaFissi(kwh) {
-  const variabile = kwh * TARIFFA.prezzo_energia_kwh;
-  const accisa = kwh * TARIFFA.accisa_kwh;
+function costoEnergiaSenzaFissi(kwh, date) {
+  const t = getTariffaPerData(date);
+  const variabile = kwh * t.prezzo_energia_kwh;
+  const accisa = kwh * t.accisa_kwh;
   const imponibile = variabile + accisa;
-  return imponibile * (1 + TARIFFA.iva);
+  return imponibile * (1 + t.iva);
 }
 
 function costoFissoGiorno(date) {
-  const totaleMensile = TARIFFA.quota_fissa_mese +
-    (TARIFFA.quota_potenza_kw_mese * TARIFFA.potenza_impegnata_kw);
+  const t = getTariffaPerData(date);
+  const totaleMensile = t.quota_fissa_mese + (t.quota_potenza_kw_mese * t.potenza_impegnata_kw);
   const imponibileGiorno = totaleMensile / daysInMonth(date);
-  return imponibileGiorno * (1 + TARIFFA.iva);
+  return imponibileGiorno * (1 + t.iva);
 }
 
 function sommaKwhPerCanale(feedsInRange) {
@@ -314,15 +340,15 @@ function renderRiepilogoCosti(feedsMese, now) {
 
   const costi = {
     oggi: {
-      prese: costoEnergiaSenzaFissi(kwhOggi.prese),
-      clima: costoEnergiaSenzaFissi(kwhOggi.clima),
-      altro: costoEnergiaSenzaFissi(kwhOggi.altro),
+      prese: costoEnergiaSenzaFissi(kwhOggi.prese, now),
+      clima: costoEnergiaSenzaFissi(kwhOggi.clima, now),
+      altro: costoEnergiaSenzaFissi(kwhOggi.altro, now),
       fissi: fissoGiorno
     },
     mese: {
-      prese: costoEnergiaSenzaFissi(kwhMese.prese),
-      clima: costoEnergiaSenzaFissi(kwhMese.clima),
-      altro: costoEnergiaSenzaFissi(kwhMese.altro),
+      prese: costoEnergiaSenzaFissi(kwhMese.prese, now),
+      clima: costoEnergiaSenzaFissi(kwhMese.clima, now),
+      altro: costoEnergiaSenzaFissi(kwhMese.altro, now),
       fissi: fissoMese
     }
   };
@@ -422,9 +448,10 @@ async function loadAndRender() {
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   startClock();
   setupRangeButtons();
+  TARIFFA_STORICO = await loadTariffaStorico();
   loadAndRender();
   setInterval(loadAndRender, 60 * 1000);
 });

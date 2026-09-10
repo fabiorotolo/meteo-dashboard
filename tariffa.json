@@ -1,0 +1,12 @@
+[
+  {
+    "valido_dal": "2026-06-01",
+    "nota": "Bolletta n. 5461487545, periodo 01/06/2026-31/07/2026",
+    "prezzo_energia_kwh": 0.234817,
+    "quota_fissa_mese": 13.785472,
+    "quota_potenza_kw_mese": 1.944262,
+    "potenza_impegnata_kw": 3.0,
+    "accisa_kwh": 0.0227,
+    "iva": 0.10
+  }
+]
