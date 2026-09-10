@@ -5,16 +5,11 @@
 const ENERGY_CHANNEL_ID = 3489445;
 const ENERGY_READ_KEY = "L3NRPAO60VP1UM4Z";
 
-// Mappatura field -> colonna (vedi energy_cloud_sync.py sul Raspberry)
 const ENERGY_FIELDS = {
-  casa_w: 1,
-  casa_wh_delta: 2,
-  prese_w: 3,
-  prese_wh_delta: 4,
-  clima_w: 5,
-  clima_wh_delta: 6,
-  altro_w: 7,
-  altro_wh_delta: 8
+  casa_w: 1, casa_wh_delta: 2,
+  prese_w: 3, prese_wh_delta: 4,
+  clima_w: 5, clima_wh_delta: 6,
+  altro_w: 7, altro_wh_delta: 8
 };
 
 const CANALI = [
@@ -24,7 +19,6 @@ const CANALI = [
   { key: "altro", label: "Altro", color: "#66ff99" }
 ];
 
-// Canali "componenti" di casa (casa = prese + clima + altro per definizione)
 const CANALI_COMPONENTI = [
   { key: "prese", label: "Prese", color: "#66aaff" },
   { key: "clima", label: "Clima", color: "#ff9d4d" },
@@ -36,8 +30,8 @@ const RANGE_HOURS = {
   "1d": 24, "1w": 24 * 7, "1m": 24 * 30, "1y": 24 * 365
 };
 
-const POWER_LIMIT = { min: -50, max: 20000 };   // W
-const ENERGY_LIMIT = { min: -1, max: 20000 };   // Wh per intervallo
+const POWER_LIMIT = { min: -50, max: 20000 };
+const ENERGY_LIMIT = { min: -1, max: 20000 };
 
 // ========================
 // TARIFFA - da bolletta Enel "Scegli Tu" (MONORARIO)
@@ -45,12 +39,12 @@ const ENERGY_LIMIT = { min: -1, max: 20000 };   // Wh per intervallo
 // Fattura di riferimento: periodo 01/06/2026-31/07/2026, n. 5461487545
 // ========================
 const TARIFFA = {
-  prezzo_energia_kwh: 0.234817,   // quota consumi (vendita + rete/oneri), €/kWh
-  quota_fissa_mese: 13.785472,    // €/mese, indipendente dal consumo
-  quota_potenza_kw_mese: 1.944262,// €/kW/mese
-  potenza_impegnata_kw: 3.0,      // kW da contratto
-  accisa_kwh: 0.0227,             // €/kWh (aliquota dichiarata in bolletta)
-  iva: 0.10                       // 10%
+  prezzo_energia_kwh: 0.234817,
+  quota_fissa_mese: 13.785472,
+  quota_potenza_kw_mese: 1.944262,
+  potenza_impegnata_kw: 3.0,
+  accisa_kwh: 0.0227,
+  iva: 0.10
 };
 
 let currentRange = "1d";
@@ -89,10 +83,7 @@ async function fetchChannelFeeds(channelId, apiKey, maxResults = 2000) {
   const res = await fetch(url);
   if (!res.ok) throw new Error("Errore HTTP " + res.status);
   const data = await res.json();
-  return (data.feeds || []).map(f => ({
-    time: new Date(f.created_at),
-    raw: f
-  }));
+  return (data.feeds || []).map(f => ({ time: new Date(f.created_at), raw: f }));
 }
 
 function filterByRange(feeds, hours, endTime) {
@@ -125,6 +116,16 @@ function getChartMargins() {
   return isSmall ? { l: 40, r: 5, t: 10, b: 20 } : { l: 55, r: 10, t: 10, b: 25 };
 }
 
+function getMarkerFontSize() {
+  const isSmall = window.innerHeight <= 600 && window.innerWidth <= 900;
+  return isSmall ? 7 : 12;
+}
+
+function getMarkerMode() {
+  const isSmall = window.innerHeight <= 600 && window.innerWidth <= 900;
+  return isSmall ? "markers" : "markers+text";
+}
+
 function startClock() {
   const el = document.getElementById("clock-time");
   if (!el) return;
@@ -150,17 +151,13 @@ function setupRangeButtons() {
 function setupPanHandler(chartId) {
   const div = document.getElementById(chartId);
   if (!div) return;
-
   div.on("plotly_relayouting", () => { isDragging = true; });
-
   div.on("plotly_relayout", ev => {
     if (!isDragging) return;
     if (!ev["xaxis.range[1]"]) return;
     isDragging = false;
-
     const newEnd = new Date(ev["xaxis.range[1]"]);
     if (Math.abs(newEnd - currentEndTime) < 1000) return;
-
     currentEndTime = newEnd;
     loadAndRender();
   });
@@ -174,29 +171,53 @@ function darkLayout(yTitle, extra = {}) {
     plot_bgcolor: "rgba(0,0,0,0)",
     font: { color: "#ffffff" },
     xaxis: {
-      showgrid: true,
-      gridcolor: "#555555",
-      tickfont: { color: "#ffffff" },
-      linecolor: "#ffffff",
+      showgrid: true, gridcolor: "#555555",
+      tickfont: { color: "#ffffff" }, linecolor: "#ffffff",
       tickformat: getXAxisFormat(currentRange)
     },
     yaxis: {
-      showgrid: true,
-      gridcolor: "#555555",
-      tickfont: { color: "#ffffff" },
-      linecolor: "#ffffff",
+      showgrid: true, gridcolor: "#555555",
+      tickfont: { color: "#ffffff" }, linecolor: "#ffffff",
       title: { text: yTitle, font: { color: "#ffffff" } }
     },
     legend: { orientation: "h", y: 1.15 }
   }, extra);
 }
 
+// Marker min/max stile meteo, applicato a UNA serie (di solito "Casa")
+function buildMinMaxMarkers(points, color) {
+  if (!points.length) return { markers: [], min: null, max: null };
+  const values = points.map(p => p.y);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const minPoint = points.find(p => p.y === min);
+  const maxPoint = points.find(p => p.y === max);
+
+  const markers = [
+    {
+      x: [minPoint.x], y: [minPoint.y],
+      mode: getMarkerMode(),
+      marker: { size: 8, color, symbol: "circle" },
+      text: [min.toFixed(0)], textposition: "bottom center",
+      textfont: { color: "#ffffff", size: getMarkerFontSize(), weight: "bold" },
+      showlegend: false, hoverinfo: "skip"
+    },
+    {
+      x: [maxPoint.x], y: [maxPoint.y],
+      mode: getMarkerMode(),
+      marker: { size: 8, color, symbol: "circle" },
+      text: [max.toFixed(0)], textposition: "top center",
+      textfont: { color: "#ffffff", size: getMarkerFontSize(), weight: "bold" },
+      showlegend: false, hoverinfo: "skip"
+    }
+  ];
+  return { markers, min, max };
+}
+
 // ========================
 // CALCOLO COSTI STIMATI
 // ========================
 
-// Ritorna il costo "energia" (variabile + accisa + IVA) per un consumo in kWh,
-// SENZA quota fissa (usato per i sotto-canali prese/clima/altro).
 function costoEnergiaSenzaFissi(kwh) {
   const variabile = kwh * TARIFFA.prezzo_energia_kwh;
   const accisa = kwh * TARIFFA.accisa_kwh;
@@ -204,8 +225,6 @@ function costoEnergiaSenzaFissi(kwh) {
   return imponibile * (1 + TARIFFA.iva);
 }
 
-// Costo fisso giornaliero (quota fissa + quota potenza), prorato sui giorni
-// del mese corrente. Non dipende dal consumo.
 function costoFissoGiorno(date) {
   const totaleMensile = TARIFFA.quota_fissa_mese +
     (TARIFFA.quota_potenza_kw_mese * TARIFFA.potenza_impegnata_kw);
@@ -213,16 +232,6 @@ function costoFissoGiorno(date) {
   return imponibileGiorno * (1 + TARIFFA.iva);
 }
 
-// Costo totale "Casa" = energia sul consumo totale + costi fissi del giorno
-function costoTotaleCasa(kwhCasa, date) {
-  return costoEnergiaSenzaFissi(kwhCasa) + costoFissoGiorno(date);
-}
-
-// ========================
-// FETCH CONDIVISO (settimana + mese in corso, un'unica chiamata)
-// ========================
-
-// Somma i Wh delta per canale tra due date, su un array di feed già filtrato.
 function sommaKwhPerCanale(feedsInRange) {
   const kwh = { casa: 0, prese: 0, clima: 0, altro: 0 };
   for (const f of feedsInRange) {
@@ -235,10 +244,7 @@ function sommaKwhPerCanale(feedsInRange) {
 }
 
 async function fetchFeedsMese(now) {
-  // Copre da inizio mese fino ad ora (max 8000 risultati, limite ThingSpeak).
-  // Se il mese ha piu' di ~27 giorni pieni di dati, i primissimi giorni
-  // potrebbero non rientrare: approssimazione accettabile per una stima.
-  const giorniDaCoprire = now.getDate() + 1; // giorno del mese + margine
+  const giorniDaCoprire = now.getDate() + 1;
   const maxResults = Math.min(8000, giorniDaCoprire * 300);
   return fetchChannelFeeds(ENERGY_CHANNEL_ID, ENERGY_READ_KEY, maxResults);
 }
@@ -259,7 +265,6 @@ function renderWeeklyChart(feedsMese, now) {
     const d = f.time;
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
     if (!perGiorno[key]) perGiorno[key] = { prese: 0, clima: 0, altro: 0, casa: 0, date: new Date(d.getFullYear(), d.getMonth(), d.getDate()) };
-
     for (const c of CANALI) {
       const v = parseFloat(f.raw["field" + ENERGY_FIELDS[c.key + "_wh_delta"]]);
       if (isValid(v, ENERGY_LIMIT)) perGiorno[key][c.key] += v;
@@ -290,7 +295,7 @@ function renderWeeklyChart(feedsMese, now) {
 }
 
 // ========================
-// RENDER RIEPILOGO COSTI: OGGI + DA INIZIO MESE (numeri + barre raggruppate)
+// RENDER RIEPILOGO COSTI: OGGI + DA INIZIO MESE
 // ========================
 
 function renderRiepilogoCosti(feedsMese, now) {
@@ -303,8 +308,7 @@ function renderRiepilogoCosti(feedsMese, now) {
   const kwhOggi = sommaKwhPerCanale(feedsOggi);
   const kwhMese = sommaKwhPerCanale(feedsMeseCorrente);
 
-  // Costi fissi: oggi = 1 giorno prorato; mese = giorni trascorsi nel mese prorati
-  const giorniTrascorsiMese = now.getDate(); // 1..31
+  const giorniTrascorsiMese = now.getDate();
   const fissoGiorno = costoFissoGiorno(now);
   const fissoMese = fissoGiorno * giorniTrascorsiMese;
 
@@ -333,16 +337,12 @@ function renderRiepilogoCosti(feedsMese, now) {
   const traceOggi = {
     x: categorie,
     y: [costi.oggi.prese, costi.oggi.clima, costi.oggi.altro, costi.oggi.fissi],
-    name: "Oggi",
-    type: "bar",
-    marker: { color: "#3d7cff" }
+    name: "Oggi", type: "bar", marker: { color: "#3d7cff" }
   };
   const traceMese = {
     x: categorie,
     y: [costi.mese.prese, costi.mese.clima, costi.mese.altro, costi.mese.fissi],
-    name: "Da inizio mese",
-    type: "bar",
-    marker: { color: "#66aaff" }
+    name: "Da inizio mese", type: "bar", marker: { color: "#66aaff" }
   };
 
   Plotly.newPlot("chart-costi", [traceOggi, traceMese], darkLayout("€", {
@@ -353,7 +353,7 @@ function renderRiepilogoCosti(feedsMese, now) {
 }
 
 // ========================
-// RENDER GRAFICI POTENZA E CONSUMO (range selezionabile)
+// RENDER GRAFICI POTENZA E CONSUMO (con marker min/max su "Casa")
 // ========================
 
 async function loadAndRender() {
@@ -369,43 +369,48 @@ async function loadAndRender() {
     const hours = RANGE_HOURS[currentRange] || 24;
     const filtered = filterByRange(feeds, hours, currentEndTime);
 
-    // === GRAFICO POTENZA (W) - 4 serie sovrapposte ===
-    const powerTraces = CANALI.map(c => {
-      const pts = buildSeries(filtered, ENERGY_FIELDS[c.key + "_w"], POWER_LIMIT);
-      return {
-        x: pts.map(p => p.x),
-        y: pts.map(p => p.y),
-        mode: "lines",
-        name: c.label,
-        line: { width: 2, color: c.color }
-      };
-    });
-    Plotly.newPlot("chart-power", powerTraces, darkLayout("W"), { displayModeBar: false });
-    setupPanHandler("chart-power");
-
-    // === GRAFICO CONSUMO (Wh) - 4 serie sovrapposte ===
-    const energyTraces = CANALI.map(c => {
-      const pts = buildSeries(filtered, ENERGY_FIELDS[c.key + "_wh_delta"], ENERGY_LIMIT);
-      return {
-        x: pts.map(p => p.x),
-        y: pts.map(p => p.y),
-        mode: "lines",
-        name: c.label,
-        line: { width: 2, color: c.color }
-      };
-    });
-    Plotly.newPlot("chart-energy", energyTraces, darkLayout("Wh"), { displayModeBar: false });
-    setupPanHandler("chart-energy");
-
+    // === STATISTICHE IN ALTO (ultima lettura) ===
     if (filtered.length) {
-      const lastTime = filtered[filtered.length - 1].time;
-      status.textContent = `Ultimo dato: ${fmtDateTime(lastTime)} | Punti: ${filtered.length}`;
-    } else {
-      status.textContent = "Nessun dato nell'intervallo selezionato";
+      const last = filtered[filtered.length - 1].raw;
+      for (const c of CANALI) {
+        const w = parseFloat(last["field" + ENERGY_FIELDS[c.key + "_w"]]);
+        const el = document.getElementById(`stat-${c.key}-w`);
+        if (el && !isNaN(w)) el.innerHTML = w.toFixed(1) + ' <span class="unit-small">W</span>';
+      }
+      document.getElementById("stat-last-ts").textContent = fmtDateTime(filtered[filtered.length - 1].time);
+      document.getElementById("stat-total-points").textContent = filtered.length;
     }
 
-    // Pannelli indipendenti dal range selezionato (sempre "oggi" / "mese" / "ultimi 7 gg")
-    // Un'unica fetch condivisa tra i due pannelli, per non duplicare chiamate a ThingSpeak.
+    // === GRAFICO POTENZA (W) - 4 serie + marker min/max su Casa ===
+    const powerTraces = CANALI.map(c => {
+      const pts = buildSeries(filtered, ENERGY_FIELDS[c.key + "_w"], POWER_LIMIT);
+      return { x: pts.map(p => p.x), y: pts.map(p => p.y), mode: "lines", name: c.label, line: { width: 2, color: c.color } };
+    });
+    const casaPowerPts = buildSeries(filtered, ENERGY_FIELDS["casa_w"], POWER_LIMIT);
+    const { markers: powerMarkers, min: minPowerCasa, max: maxPowerCasa } = buildMinMaxMarkers(casaPowerPts, "#3d7cff");
+    document.getElementById("power-minmax").textContent =
+      casaPowerPts.length ? `Casa: ${minPowerCasa.toFixed(0)}-${maxPowerCasa.toFixed(0)} W` : "--";
+
+    Plotly.newPlot("chart-power", [...powerTraces, ...powerMarkers], darkLayout("W"), { displayModeBar: false });
+    setupPanHandler("chart-power");
+
+    // === GRAFICO CONSUMO (Wh) - 4 serie + marker min/max su Casa ===
+    const energyTraces = CANALI.map(c => {
+      const pts = buildSeries(filtered, ENERGY_FIELDS[c.key + "_wh_delta"], ENERGY_LIMIT);
+      return { x: pts.map(p => p.x), y: pts.map(p => p.y), mode: "lines", name: c.label, line: { width: 2, color: c.color } };
+    });
+    const casaEnergyPts = buildSeries(filtered, ENERGY_FIELDS["casa_wh_delta"], ENERGY_LIMIT);
+    const { markers: energyMarkers, min: minEnergyCasa, max: maxEnergyCasa } = buildMinMaxMarkers(casaEnergyPts, "#3d7cff");
+    document.getElementById("energy-minmax").textContent =
+      casaEnergyPts.length ? `Casa: ${minEnergyCasa.toFixed(1)}-${maxEnergyCasa.toFixed(1)} Wh` : "--";
+
+    Plotly.newPlot("chart-energy", [...energyTraces, ...energyMarkers], darkLayout("Wh"), { displayModeBar: false });
+    setupPanHandler("chart-energy");
+
+    status.textContent = filtered.length
+      ? `Ultimo dato: ${fmtDateTime(filtered[filtered.length - 1].time)}`
+      : "Nessun dato nell'intervallo selezionato";
+
     const now = new Date();
     const feedsMese = await fetchFeedsMese(now);
     renderWeeklyChart(feedsMese, now);
@@ -421,5 +426,5 @@ document.addEventListener("DOMContentLoaded", () => {
   startClock();
   setupRangeButtons();
   loadAndRender();
-  setInterval(loadAndRender, 60 * 1000); // auto-refresh ogni minuto
+  setInterval(loadAndRender, 60 * 1000);
 });

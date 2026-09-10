@@ -8,13 +8,20 @@
 
   <style>
 :root {
+  --bg-main: #1d1f26;
   --bg-panel: #262932;
+  --bg-panel-soft: #2c2f39;
   --bg-top-tile: #2b2e38;
   --border-panel: #3a3d4a;
+
+  --accent: #3d7cff;
+  --accent-soft: #2f4f80;
+
   --text-main: #f4f4f7;
   --text-soft: #c5c7d1;
   --text-muted: #9396a3;
-  --accent: #3d7cff;
+
+  --danger: #ff5c5c;
 }
 
 * { box-sizing: border-box; }
@@ -26,9 +33,10 @@ body {
   color: var(--text-main);
   min-height: 100vh;
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
-.root {
+.kiosk-root {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -36,19 +44,46 @@ body {
   min-height: 100vh;
 }
 
-.top-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 16px;
-  font-weight: 600;
+/* TOP ROW: 4 canali + orologio, stesso schema del kiosk meteo */
+.top-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  min-height: 70px;
 }
 
-.top-bar .clock {
-  font-size: 14px;
-  color: var(--text-soft);
-  font-weight: 400;
+.top-tile {
+  background: var(--bg-top-tile);
+  border-radius: 10px;
+  border: 1px solid #242b3d;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 4px 6px rgba(0, 0, 0, 0.7);
 }
+
+.top-label-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  margin-bottom: 3px;
+}
+
+.top-label-unit { opacity: 0.8; font-weight: 600; }
+
+.top-value {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.unit-small { font-size: 0.5em; font-weight: 400; opacity: 0.9; }
+
+.top-timer { text-align: center; }
 
 /* GRIGLIA CENTRALE 2x2 */
 .center-grid {
@@ -60,15 +95,11 @@ body {
   min-height: 0;
 }
 
-@media screen and (max-width: 900px) {
-  .center-grid { grid-template-columns: 1fr; grid-template-rows: repeat(4, minmax(280px, auto)); }
-}
-
 .panel {
   background: var(--bg-panel);
   border-radius: 10px;
   border: 1px solid var(--border-panel);
-  padding: 6px 10px;
+  padding: 6px 8px;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -86,16 +117,21 @@ body {
   margin-bottom: 4px;
 }
 
-.chart { flex: 1; min-height: 0; }
+.panel-title { font-weight: 600; }
+.panel-subtitle { font-size: 11px; color: var(--text-muted); }
 
-/* PANNELLO RIEPILOGO COSTI (testuale, non grafico) */
+.chart-kiosk { flex: 1; min-height: 0; }
+
+.chart-kiosk .plot-container,
+.chart-kiosk .svg-container { background: transparent !important; }
+
+/* PANNELLO RIEPILOGO COSTI (numeri + mini-grafico) */
 .riepilogo-body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  justify-content: center;
-  overflow-y: auto;
+  gap: 6px;
+  min-height: 0;
 }
 
 .riepilogo-totali-row {
@@ -104,10 +140,7 @@ body {
   gap: 8px;
 }
 
-.riepilogo-totale {
-  text-align: center;
-  padding: 4px 0;
-}
+.riepilogo-totale { text-align: center; padding: 2px 0; }
 
 .riepilogo-totale .valore {
   font-size: 24px;
@@ -116,129 +149,262 @@ body {
 }
 
 .riepilogo-totale .label {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
-.riepilogo-righe {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 13px;
-}
-
-.riepilogo-riga {
-  display: flex;
-  justify-content: space-between;
-  padding: 3px 6px;
-  border-radius: 6px;
-  background: rgba(255,255,255,0.03);
-}
-
-.riepilogo-riga .nome { color: var(--text-soft); }
-.riepilogo-riga .val { font-weight: 600; }
-
 .riepilogo-note {
   font-size: 10px;
   color: var(--text-muted);
   text-align: center;
-  margin-top: 2px;
+}
+
+/* META */
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-soft);
+  margin: 0 2px 2px;
+}
+
+.meta-row span span {
+  font-family: "JetBrains Mono", Menlo, monospace;
+  color: var(--text-main);
 }
 
 /* FOOTER */
 .footer-bar {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  flex-wrap: wrap;
   gap: 8px;
+  min-height: 32px;
+  font-size: 12px;
+  margin-top: 2px;
 }
 
-.status-line { font-size: 12px; color: var(--text-muted); }
+.footer-left { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.footer-title { font-weight: 600; }
+.status-line {
+  color: var(--text-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.footer-center { display: flex; justify-content: center; gap: 4px; flex-wrap: wrap; }
 
 .btn-range {
-  background: #2c2f39;
-  color: var(--text-main);
-  border: 1px solid var(--border-panel);
-  border-radius: 6px;
-  padding: 5px 12px;
-  font-size: 12px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid #2b3144;
+  background: #141927;
+  color: var(--text-soft);
   cursor: pointer;
+  font-size: 11px;
+  min-width: 32px;
+  text-align: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.btn-range.active { background: #3d7cff; border-color: #3d7cff; }
+
+.btn-range.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 0 6px rgba(45, 140, 255, 0.9);
+}
+
+.footer-right { display: flex; justify-content: flex-end; gap: 4px; }
 
 .btn-small {
-  background: #2c2f39;
-  color: var(--text-main);
-  border: 1px solid var(--border-panel);
+  padding: 3px 8px;
   border-radius: 6px;
-  padding: 6px 14px;
-  font-size: 12px;
+  border: 1px solid #383f53;
+  background: #161c2b;
+  color: var(--text-soft);
+  font-size: 11px;
   cursor: pointer;
+}
+
+/* ================================
+   SMARTPHONE VERTICALE - stesso pattern di index.html
+   ================================ */
+@media screen and (orientation: portrait) and (max-width: 650px) {
+  body { overflow-y: auto !important; height: auto !important; }
+
+  .kiosk-root {
+    height: auto !important;
+    min-height: 100vh !important;
+    padding: 8px !important;
+    gap: 8px !important;
+  }
+
+  .top-row {
+    grid-template-columns: 1fr 1fr !important;
+    grid-template-rows: auto auto auto !important;
+    grid-template-areas:
+      "clock clock"
+      "casa prese"
+      "clima altro" !important;
+    gap: 6px !important;
+    min-height: auto !important;
+  }
+
+  .tile-clock { grid-area: clock; text-align: center; }
+  .tile-casa  { grid-area: casa; }
+  .tile-prese { grid-area: prese; }
+  .tile-clima { grid-area: clima; }
+  .tile-altro { grid-area: altro; }
+
+  .top-tile { padding: 6px 8px !important; }
+  .top-value { font-size: 20px !important; }
+  .top-label-row { font-size: 10px !important; }
+
+  .center-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    flex: 0 0 auto !important;
+  }
+
+  .panel { flex: 0 0 auto !important; padding: 8px 10px !important; }
+
+  .chart-kiosk {
+    flex: 0 0 260px !important;
+    height: 260px !important;
+    min-height: 260px !important;
+    width: 100% !important;
+  }
+
+  .meta-row {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 4px !important;
+    font-size: 11px !important;
+    margin: 4px 0 !important;
+  }
+
+  .footer-bar {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto auto auto !important;
+    gap: 8px !important;
+    min-height: auto !important;
+  }
+
+  .footer-left { order: 1 !important; }
+  .footer-center {
+    order: 2 !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    gap: 4px !important;
+  }
+  .footer-right {
+    order: 3 !important;
+    display: flex !important;
+    justify-content: center !important;
+    gap: 8px !important;
+  }
+
+  .btn-range { padding: 4px 10px !important; font-size: 12px !important; }
+  .btn-small { padding: 4px 12px !important; font-size: 12px !important; }
 }
   </style>
 </head>
 
 <body>
-  <div class="root">
-    <div class="top-bar">
-      <span>⚡ Energy Cloud - Consumi</span>
-      <span class="clock" id="clock-time">--:--:--</span>
+  <div class="kiosk-root">
+    <!-- TOP ROW -->
+    <div class="top-row">
+      <div class="top-tile tile-casa">
+        <div class="top-label-row"><span>Casa</span></div>
+        <div class="top-value" id="stat-casa-w">-- <span class="unit-small">W</span></div>
+      </div>
+      <div class="top-tile tile-prese">
+        <div class="top-label-row"><span>Prese</span></div>
+        <div class="top-value" id="stat-prese-w">-- <span class="unit-small">W</span></div>
+      </div>
+      <div class="top-tile top-timer tile-clock">
+        <div class="top-label-row"><span>Ora locale</span></div>
+        <div class="top-value" id="clock-time">--:--:--</div>
+      </div>
+      <div class="top-tile tile-clima">
+        <div class="top-label-row"><span>Clima</span></div>
+        <div class="top-value" id="stat-clima-w">-- <span class="unit-small">W</span></div>
+      </div>
+      <div class="top-tile tile-altro">
+        <div class="top-label-row"><span>Altro</span></div>
+        <div class="top-value" id="stat-altro-w">-- <span class="unit-small">W</span></div>
+      </div>
     </div>
 
+    <!-- GRIGLIA CENTRALE 2x2 -->
     <div class="center-grid">
-      <!-- ALTO SX: consumi settimanali (barre impilate) -->
+      <!-- ALTO SX: consumi settimanali -->
       <div class="panel">
         <div class="panel-header">
-          <span>Consumi ultimi 7 giorni (kWh)</span>
-          <span id="weekly-total">--</span>
+          <span class="panel-title">Consumi ultimi 7 giorni</span>
+          <span class="panel-subtitle" id="weekly-total">--</span>
         </div>
-        <div id="chart-weekly" class="chart"></div>
+        <div id="chart-weekly" class="chart-kiosk"></div>
       </div>
 
-      <!-- ALTO DX: riepilogo costi di oggi -->
+      <!-- ALTO DX: riepilogo costi -->
       <div class="panel">
         <div class="panel-header">
-          <span>Riepilogo oggi (stima)</span>
+          <span class="panel-title">Riepilogo costi (stima)</span>
         </div>
         <div class="riepilogo-body">
           <div class="riepilogo-totali-row">
             <div class="riepilogo-totale">
               <div class="valore" id="riepilogo-totale-oggi">-- €</div>
-              <div class="label">stima oggi</div>
+              <div class="label">oggi</div>
             </div>
             <div class="riepilogo-totale">
               <div class="valore" id="riepilogo-totale-mese">-- €</div>
-              <div class="label">stima da inizio mese</div>
+              <div class="label">da inizio mese</div>
             </div>
           </div>
-          <div id="chart-costi" class="chart" style="min-height:120px;"></div>
-          <div class="riepilogo-note">Stima indicativa, non sostituisce la bolletta. Tariffa e quote aggiornate manualmente nel codice.</div>
+          <div id="chart-costi" class="chart-kiosk"></div>
+          <div class="riepilogo-note">Stima indicativa, non sostituisce la bolletta.</div>
         </div>
       </div>
 
       <!-- BASSO SX: potenza istantanea -->
       <div class="panel">
         <div class="panel-header">
-          <span>Potenza istantanea (W)</span>
+          <span class="panel-title">Potenza istantanea</span>
+          <span class="panel-subtitle" id="power-minmax">--</span>
         </div>
-        <div id="chart-power" class="chart"></div>
+        <div id="chart-power" class="chart-kiosk"></div>
       </div>
 
       <!-- BASSO DX: consumo per intervallo -->
       <div class="panel">
         <div class="panel-header">
-          <span>Consumo per intervallo (Wh)</span>
+          <span class="panel-title">Consumo per intervallo</span>
+          <span class="panel-subtitle" id="energy-minmax">--</span>
         </div>
-        <div id="chart-energy" class="chart"></div>
+        <div id="chart-energy" class="chart-kiosk"></div>
       </div>
     </div>
 
+    <!-- META -->
+    <div class="meta-row">
+      <span>Ultimo dato: <span id="stat-last-ts">--</span> | Punti totali: <span id="stat-total-points">0</span></span>
+    </div>
+
+    <!-- FOOTER -->
     <div class="footer-bar">
-      <div class="status-line" id="status-bar">Caricamento dati da ThingSpeak…</div>
-      <div>
+      <div class="footer-left">
+        <div class="footer-title">Energy kiosk</div>
+        <div class="status-line" id="status-bar">Caricamento dati da ThingSpeak…</div>
+      </div>
+      <div class="footer-center">
         <button class="btn-range" data-range="1h">1h</button>
         <button class="btn-range" data-range="3h">3h</button>
         <button class="btn-range" data-range="6h">6h</button>
@@ -248,7 +414,7 @@ body {
         <button class="btn-range" data-range="1m">1m</button>
         <button class="btn-range" data-range="1y">1y</button>
       </div>
-      <div>
+      <div class="footer-right">
         <button class="btn-small" type="button" onclick="window.location.href='index.html'">⟵ Meteo</button>
       </div>
     </div>
