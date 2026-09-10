@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>Energy Cloud - Consumi</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+  <style>
+:root {
+  --bg-panel: #262932;
+  --bg-top-tile: #2b2e38;
+  --border-panel: #3a3d4a;
+  --text-main: #f4f4f7;
+  --text-soft: #c5c7d1;
+  --text-muted: #9396a3;
+  --accent: #3d7cff;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: radial-gradient(circle at top, #20284a 0, #05070d 50%);
+  color: var(--text-main);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px;
+  min-height: 100vh;
+}
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.top-bar .clock {
+  font-size: 14px;
+  color: var(--text-soft);
+  font-weight: 400;
+}
+
+/* GRIGLIA CENTRALE 2x2 */
+.center-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: 1fr 1fr;
+  gap: 8px;
+  min-height: 0;
+}
+
+@media screen and (max-width: 900px) {
+  .center-grid { grid-template-columns: 1fr; grid-template-rows: repeat(4, minmax(280px, auto)); }
+}
+
+.panel {
+  background: var(--bg-panel);
+  border-radius: 10px;
+  border: 1px solid var(--border-panel);
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.6);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-soft);
+  margin-bottom: 4px;
+}
+
+.chart { flex: 1; min-height: 0; }
+
+/* PANNELLO RIEPILOGO COSTI (testuale, non grafico) */
+.riepilogo-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  overflow-y: auto;
+}
+
+.riepilogo-totali-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.riepilogo-totale {
+  text-align: center;
+  padding: 4px 0;
+}
+
+.riepilogo-totale .valore {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.riepilogo-totale .label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.riepilogo-righe {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.riepilogo-riga {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.03);
+}
+
+.riepilogo-riga .nome { color: var(--text-soft); }
+.riepilogo-riga .val { font-weight: 600; }
+
+.riepilogo-note {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 2px;
+}
+
+/* FOOTER */
+.footer-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.status-line { font-size: 12px; color: var(--text-muted); }
+
+.btn-range {
+  background: #2c2f39;
+  color: var(--text-main);
+  border: 1px solid var(--border-panel);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.btn-range.active { background: #3d7cff; border-color: #3d7cff; }
+
+.btn-small {
+  background: #2c2f39;
+  color: var(--text-main);
+  border: 1px solid var(--border-panel);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  cursor: pointer;
+}
+  </style>
+</head>
+
+<body>
+  <div class="root">
+    <div class="top-bar">
+      <span>⚡ Energy Cloud - Consumi</span>
+      <span class="clock" id="clock-time">--:--:--</span>
+    </div>
+
+    <div class="center-grid">
+      <!-- ALTO SX: consumi settimanali (barre impilate) -->
+      <div class="panel">
+        <div class="panel-header">
+          <span>Consumi ultimi 7 giorni (kWh)</span>
+          <span id="weekly-total">--</span>
+        </div>
+        <div id="chart-weekly" class="chart"></div>
+      </div>
+
+      <!-- ALTO DX: riepilogo costi di oggi -->
+      <div class="panel">
+        <div class="panel-header">
+          <span>Riepilogo oggi (stima)</span>
+        </div>
+        <div class="riepilogo-body">
+          <div class="riepilogo-totali-row">
+            <div class="riepilogo-totale">
+              <div class="valore" id="riepilogo-totale-oggi">-- €</div>
+              <div class="label">stima oggi</div>
+            </div>
+            <div class="riepilogo-totale">
+              <div class="valore" id="riepilogo-totale-mese">-- €</div>
+              <div class="label">stima da inizio mese</div>
+            </div>
+          </div>
+          <div id="chart-costi" class="chart" style="min-height:120px;"></div>
+          <div class="riepilogo-note">Stima indicativa, non sostituisce la bolletta. Tariffa e quote aggiornate manualmente nel codice.</div>
+        </div>
+      </div>
+
+      <!-- BASSO SX: potenza istantanea -->
+      <div class="panel">
+        <div class="panel-header">
+          <span>Potenza istantanea (W)</span>
+        </div>
+        <div id="chart-power" class="chart"></div>
+      </div>
+
+      <!-- BASSO DX: consumo per intervallo -->
+      <div class="panel">
+        <div class="panel-header">
+          <span>Consumo per intervallo (Wh)</span>
+        </div>
+        <div id="chart-energy" class="chart"></div>
+      </div>
+    </div>
+
+    <div class="footer-bar">
+      <div class="status-line" id="status-bar">Caricamento dati da ThingSpeak…</div>
+      <div>
+        <button class="btn-range" data-range="1h">1h</button>
+        <button class="btn-range" data-range="3h">3h</button>
+        <button class="btn-range" data-range="6h">6h</button>
+        <button class="btn-range" data-range="12h">12h</button>
+        <button class="btn-range" data-range="1d">1d</button>
+        <button class="btn-range" data-range="1w">1w</button>
+        <button class="btn-range" data-range="1m">1m</button>
+        <button class="btn-range" data-range="1y">1y</button>
+      </div>
+      <div>
+        <button class="btn-small" type="button" onclick="window.location.href='index.html'">⟵ Meteo</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="energia.js"></script>
+</body>
+</html>
