@@ -16,13 +16,13 @@ const CANALI = [
   { key: "casa", label: "Casa", color: "#3d7cff" },
   { key: "prese", label: "Prese", color: "#66aaff" },
   { key: "clima", label: "Clima", color: "#ff9d4d" },
-  { key: "altro", label: "Altro", color: "#66ff99" }
+  { key: "altro", label: "Utenze", color: "#66ff99" }
 ];
 
 const CANALI_COMPONENTI = [
   { key: "prese", label: "Prese", color: "#66aaff" },
   { key: "clima", label: "Clima", color: "#ff9d4d" },
-  { key: "altro", label: "Altro", color: "#66ff99" }
+  { key: "altro", label: "Utenze", color: "#66ff99" }
 ];
 
 const RANGE_HOURS = {
@@ -359,7 +359,7 @@ function renderRiepilogoCosti(feedsMese, now) {
   document.getElementById("riepilogo-totale-oggi").textContent = totaleOggi.toFixed(2) + " €";
   document.getElementById("riepilogo-totale-mese").textContent = totaleMese.toFixed(2) + " €";
 
-  const categorie = ["Prese", "Clima", "Altro", "Fissi"];
+  const categorie = ["Prese", "Clima", "Utenze", "Fissi"];
   const traceOggi = {
     x: categorie,
     y: [costi.oggi.prese, costi.oggi.clima, costi.oggi.altro, costi.oggi.fissi],
