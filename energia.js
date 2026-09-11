@@ -329,7 +329,8 @@ function renderWeeklyChart(feedsMese, now) {
     marker: { color: "#66ff99" },
     text: totaleKwhGiorno.map(v => v.toFixed(1) + " kWh"),
     textposition: "outside",
-    textfont: { color: "#ffffff", size: fontSizeEtichette }
+    textfont: { color: "#ffffff", size: fontSizeEtichette },
+    cliponaxis: false
   };
   const traceCosto = {
     x: labels, y: costoValues, base: 0,
@@ -338,7 +339,8 @@ function renderWeeklyChart(feedsMese, now) {
     marker: { color: "#3d7cff" },
     text: costoValues.map(v => v.toFixed(2) + " €"),
     textposition: "outside",
-    textfont: { color: "#ffffff", size: fontSizeEtichette }
+    textfont: { color: "#ffffff", size: fontSizeEtichette },
+    cliponaxis: false
   };
 
   const layoutSettimanale = darkLayout("kWh", {
@@ -346,8 +348,8 @@ function renderWeeklyChart(feedsMese, now) {
     bargap: isMobile ? 0.15 : 0.3,
     bargroupgap: isMobile ? 0.05 : 0.1,
     margin: isMobile
-      ? { l: 40, r: 40, t: 55, b: 20 }
-      : { l: 55, r: 55, t: 10, b: 25 },
+      ? { l: 40, r: 40, t: 70, b: 20 }
+      : { l: 55, r: 55, t: 30, b: 25 },
     xaxis: { tickfont: { color: "#ffffff", size: isMobile ? 9 : 12 }, linecolor: "#ffffff" },
     yaxis2: {
       overlaying: "y",
