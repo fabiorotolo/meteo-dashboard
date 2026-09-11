@@ -299,27 +299,69 @@ function renderWeeklyChart(feedsMese, now) {
 
   const giorniOrdinati = Object.keys(perGiorno).sort();
   const labels = giorniOrdinati.map(k => fmtDayLabel(perGiorno[k].date));
-  const totaliGiorno = giorniOrdinati.map(k => perGiorno[k].casa / 1000);
 
-  const traces = CANALI_COMPONENTI.map(c => ({
-    x: labels,
-    y: giorniOrdinati.map(k => perGiorno[k][c.key] / 1000),
-    name: c.label,
-    type: "bar",
-    marker: { color: c.color }
-  }));
+  const preseKwh = giorniOrdinati.map(k => perGiorno[k].prese / 1000);
+  const climaKwh = giorniOrdinati.map(k => perGiorno[k].clima / 1000);
+  const utenzeKwh = giorniOrdinati.map(k => perGiorno[k].altro / 1000);
+  const totaleKwhGiorno = giorniOrdinati.map((k, i) => preseKwh[i] + climaKwh[i] + utenzeKwh[i]);
 
-  Plotly.newPlot("chart-weekly", traces, darkLayout("kWh", {
-    barmode: "stack",
-    margin: getChartMargins(),
-    xaxis: { tickfont: { color: "#ffffff" }, linecolor: "#ffffff" }
+  // base = dove parte ogni segmento, per impilarli manualmente
+  const baseClima = preseKwh;
+  const baseUtenze = preseKwh.map((v, i) => v + climaKwh[i]);
+
+  const costoValues = giorniOrdinati.map(k => {
+    const kwh = perGiorno[k].casa / 1000;
+    const data = perGiorno[k].date;
+    return costoEnergiaSenzaFissi(kwh, data) + costoFissoGiorno(data);
+  });
+
+  const tracePrese = {
+    x: labels, y: preseKwh, base: 0,
+    name: "Prese", type: "bar", offsetgroup: "kwh",
+    marker: { color: "#66aaff" }
+  };
+  const traceClima = {
+    x: labels, y: climaKwh, base: baseClima,
+    name: "Clima", type: "bar", offsetgroup: "kwh",
+    marker: { color: "#ff9d4d" }
+  };
+  const traceUtenze = {
+    x: labels, y: utenzeKwh, base: baseUtenze,
+    name: "Utenze", type: "bar", offsetgroup: "kwh",
+    marker: { color: "#66ff99" },
+    text: totaleKwhGiorno.map(v => v.toFixed(1) + " kWh"),
+    textposition: "outside",
+    textfont: { color: "#ffffff", size: 10 }
+  };
+  const traceCosto = {
+    x: labels, y: costoValues, base: 0,
+    name: "Costo (€)", type: "bar", offsetgroup: "costo",
+    yaxis: "y2",
+    marker: { color: "#3d7cff" },
+    text: costoValues.map(v => v.toFixed(2) + " €"),
+    textposition: "outside",
+    textfont: { color: "#ffffff", size: 10 }
+  };
+
+  Plotly.newPlot("chart-weekly", [tracePrese, traceClima, traceUtenze, traceCosto], darkLayout("kWh", {
+    barmode: "group",
+    margin: { l: 45, r: 45, t: 25, b: 25 },
+    xaxis: { tickfont: { color: "#ffffff" }, linecolor: "#ffffff" },
+    yaxis2: {
+      overlaying: "y",
+      side: "right",
+      showgrid: false,
+      tickfont: { color: "#ffffff" },
+      linecolor: "#ffffff",
+      title: { text: "€", font: { color: "#ffffff" } }
+    }
   }), { displayModeBar: false });
 
-  const totaleSettimana = totaliGiorno.reduce((a, b) => a + b, 0);
+  const totKwh = totaleKwhGiorno.reduce((a, b) => a + b, 0);
+  const totCosto = costoValues.reduce((a, b) => a + b, 0);
   document.getElementById("weekly-total").textContent =
-    giorniOrdinati.length ? `tot: ${totaleSettimana.toFixed(1)} kWh` : "--";
+    giorniOrdinati.length ? `tot: ${totKwh.toFixed(1)} kWh | ${totCosto.toFixed(2)} €` : "--";
 }
-
 // ========================
 // RENDER RIEPILOGO COSTI: OGGI + DA INIZIO MESE
 // ========================
