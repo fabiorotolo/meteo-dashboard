@@ -343,7 +343,7 @@ function renderWeeklyChart(feedsMese, now) {
     textfont: { color: "#ffffff", size: 10 }
   };
 
-  Plotly.newPlot("chart-weekly", [tracePrese, traceClima, traceUtenze, traceCosto], darkLayout("kWh", {
+  const layoutSettimanale = darkLayout("kWh", {
     barmode: "group",
     margin: { l: 45, r: 45, t: 25, b: 25 },
     xaxis: { tickfont: { color: "#ffffff" }, linecolor: "#ffffff" },
@@ -351,11 +351,15 @@ function renderWeeklyChart(feedsMese, now) {
       overlaying: "y",
       side: "right",
       showgrid: false,
+      rangemode: "tozero",
       tickfont: { color: "#ffffff" },
       linecolor: "#ffffff",
       title: { text: "€", font: { color: "#ffffff" } }
     }
-  }), { displayModeBar: false });
+  });
+  layoutSettimanale.yaxis.rangemode = "tozero";
+
+  Plotly.newPlot("chart-weekly", [tracePrese, traceClima, traceUtenze, traceCosto], layoutSettimanale, { displayModeBar: false });
 
   const totKwh = totaleKwhGiorno.reduce((a, b) => a + b, 0);
   const totCosto = costoValues.reduce((a, b) => a + b, 0);
