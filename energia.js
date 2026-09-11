@@ -45,12 +45,10 @@ async function loadTariffaStorico() {
     const res = await fetch("tariffa.json");
     if (!res.ok) throw new Error("Errore HTTP " + res.status);
     const dati = await res.json();
-    // Ordina per data crescente, cosi' l'ultima valida e' sempre in fondo
     dati.sort((a, b) => new Date(a.valido_dal) - new Date(b.valido_dal));
     return dati;
   } catch (err) {
     console.error("Impossibile caricare tariffa.json, uso valori di riserva:", err);
-    // Valori di riserva (bolletta giu-lug 2026), usati solo se tariffa.json non e' raggiungibile
     return [{
       valido_dal: "2026-06-01",
       prezzo_energia_kwh: 0.234817,
@@ -63,9 +61,6 @@ async function loadTariffaStorico() {
   }
 }
 
-// Ritorna il periodo tariffario applicabile a una data: l'ultimo con
-// valido_dal <= data. Se la data e' precedente al primo periodo noto,
-// usa comunque il primo disponibile (meglio di niente).
 function getTariffaPerData(date) {
   const applicabili = TARIFFA_STORICO.filter(t => new Date(t.valido_dal) <= date);
   if (applicabili.length) return applicabili[applicabili.length - 1];
@@ -136,19 +131,21 @@ function getXAxisFormat(range) {
   return hours <= 24 ? "%H:%M" : "%d/%m";
 }
 
+// --- Rilevamento mobile basato sulla LARGHEZZA (coerente col breakpoint CSS 650px) ---
+function isMobileWidth() {
+  return window.innerWidth <= 650;
+}
+
 function getChartMargins() {
-  const isSmall = window.innerHeight <= 600 && window.innerWidth <= 900;
-  return isSmall ? { l: 40, r: 5, t: 10, b: 20 } : { l: 55, r: 10, t: 10, b: 25 };
+  return isMobileWidth() ? { l: 40, r: 5, t: 10, b: 20 } : { l: 55, r: 10, t: 10, b: 25 };
 }
 
 function getMarkerFontSize() {
-  const isSmall = window.innerHeight <= 600 && window.innerWidth <= 900;
-  return isSmall ? 7 : 12;
+  return isMobileWidth() ? 8 : 12;
 }
 
 function getMarkerMode() {
-  const isSmall = window.innerHeight <= 600 && window.innerWidth <= 900;
-  return isSmall ? "markers" : "markers+text";
+  return isMobileWidth() ? "markers" : "markers+text";
 }
 
 function startClock() {
@@ -209,7 +206,6 @@ function darkLayout(yTitle, extra = {}) {
   }, extra);
 }
 
-// Marker min/max stile meteo, applicato a UNA serie (di solito "Casa")
 function buildMinMaxMarkers(points, color) {
   if (!points.length) return { markers: [], min: null, max: null };
   const values = points.map(p => p.y);
@@ -276,7 +272,7 @@ async function fetchFeedsMese(now) {
 }
 
 // ========================
-// RENDER GRAFICO SETTIMANALE (barre impilate prese+clima+altro)
+// RENDER GRAFICO SETTIMANALE (barre impilate kWh + colonna costo affiancata)
 // ========================
 
 function renderWeeklyChart(feedsMese, now) {
@@ -305,7 +301,6 @@ function renderWeeklyChart(feedsMese, now) {
   const utenzeKwh = giorniOrdinati.map(k => perGiorno[k].altro / 1000);
   const totaleKwhGiorno = giorniOrdinati.map((k, i) => preseKwh[i] + climaKwh[i] + utenzeKwh[i]);
 
-  // base = dove parte ogni segmento, per impilarli manualmente
   const baseClima = preseKwh;
   const baseUtenze = preseKwh.map((v, i) => v + climaKwh[i]);
 
@@ -314,6 +309,9 @@ function renderWeeklyChart(feedsMese, now) {
     const data = perGiorno[k].date;
     return costoEnergiaSenzaFissi(kwh, data) + costoFissoGiorno(data);
   });
+
+  const isMobile = isMobileWidth();
+  const fontSizeEtichette = isMobile ? 8 : 10;
 
   const tracePrese = {
     x: labels, y: preseKwh, base: 0,
@@ -331,7 +329,7 @@ function renderWeeklyChart(feedsMese, now) {
     marker: { color: "#66ff99" },
     text: totaleKwhGiorno.map(v => v.toFixed(1) + " kWh"),
     textposition: "outside",
-    textfont: { color: "#ffffff", size: 10 }
+    textfont: { color: "#ffffff", size: fontSizeEtichette }
   };
   const traceCosto = {
     x: labels, y: costoValues, base: 0,
@@ -340,13 +338,17 @@ function renderWeeklyChart(feedsMese, now) {
     marker: { color: "#3d7cff" },
     text: costoValues.map(v => v.toFixed(2) + " €"),
     textposition: "outside",
-    textfont: { color: "#ffffff", size: 10 }
+    textfont: { color: "#ffffff", size: fontSizeEtichette }
   };
 
   const layoutSettimanale = darkLayout("kWh", {
     barmode: "group",
-    margin: { l: 45, r: 45, t: 25, b: 25 },
-    xaxis: { tickfont: { color: "#ffffff" }, linecolor: "#ffffff" },
+    bargap: isMobile ? 0.15 : 0.3,
+    bargroupgap: isMobile ? 0.05 : 0.1,
+    margin: isMobile
+      ? { l: 40, r: 40, t: 55, b: 20 }
+      : { l: 55, r: 55, t: 10, b: 25 },
+    xaxis: { tickfont: { color: "#ffffff", size: isMobile ? 9 : 12 }, linecolor: "#ffffff" },
     yaxis2: {
       overlaying: "y",
       side: "right",
@@ -355,6 +357,11 @@ function renderWeeklyChart(feedsMese, now) {
       tickfont: { color: "#ffffff" },
       linecolor: "#ffffff",
       title: { text: "€", font: { color: "#ffffff" } }
+    },
+    legend: {
+      orientation: "h",
+      y: isMobile ? 1.35 : 1.15,
+      font: { size: isMobile ? 10 : 12 }
     }
   });
   layoutSettimanale.yaxis.rangemode = "tozero";
@@ -366,6 +373,7 @@ function renderWeeklyChart(feedsMese, now) {
   document.getElementById("weekly-total").textContent =
     giorniOrdinati.length ? `tot: ${totKwh.toFixed(1)} kWh | ${totCosto.toFixed(2)} €` : "--";
 }
+
 // ========================
 // RENDER RIEPILOGO COSTI: OGGI + DA INIZIO MESE
 // ========================
@@ -441,7 +449,6 @@ async function loadAndRender() {
     const hours = RANGE_HOURS[currentRange] || 24;
     const filtered = filterByRange(feeds, hours, currentEndTime);
 
-    // === STATISTICHE IN ALTO (ultima lettura) ===
     if (filtered.length) {
       const last = filtered[filtered.length - 1].raw;
       for (const c of CANALI) {
@@ -453,7 +460,6 @@ async function loadAndRender() {
       document.getElementById("stat-total-points").textContent = filtered.length;
     }
 
-    // === GRAFICO POTENZA (W) - 4 serie + marker min/max su Casa ===
     const powerTraces = CANALI.map(c => {
       const pts = buildSeries(filtered, ENERGY_FIELDS[c.key + "_w"], POWER_LIMIT);
       return { x: pts.map(p => p.x), y: pts.map(p => p.y), mode: "lines", name: c.label, line: { width: 2, color: c.color } };
@@ -466,7 +472,6 @@ async function loadAndRender() {
     Plotly.newPlot("chart-power", [...powerTraces, ...powerMarkers], darkLayout("W"), { displayModeBar: false });
     setupPanHandler("chart-power");
 
-    // === GRAFICO CONSUMO (Wh) - 4 serie + marker min/max su Casa ===
     const energyTraces = CANALI.map(c => {
       const pts = buildSeries(filtered, ENERGY_FIELDS[c.key + "_wh_delta"], ENERGY_LIMIT);
       return { x: pts.map(p => p.x), y: pts.map(p => p.y), mode: "lines", name: c.label, line: { width: 2, color: c.color } };
