@@ -173,6 +173,11 @@ function setupRangeButtons() {
 function setupPanHandler(chartId) {
   const div = document.getElementById(chartId);
   if (!div) return;
+
+  // Consente al browser di gestire lo scroll verticale della pagina (touch-action: pan-y)
+  // mentre Plotly gestisce solo il trascinamento orizzontale (asse Y bloccato via fixedrange).
+  div.style.touchAction = "pan-y";
+
   div.on("plotly_relayouting", () => { isDragging = true; });
   div.on("plotly_relayout", ev => {
     if (!isDragging) return;
@@ -183,6 +188,15 @@ function setupPanHandler(chartId) {
     currentEndTime = newEnd;
     loadAndRender();
   });
+}
+
+// Per i grafici NON temporali (barre categoriche: settimanale, riepilogo costi)
+// non ha senso alcun trascinamento: blocchiamo tutto e lasciamo scorrere la pagina
+// liberamente in entrambe le direzioni quando si tocca il grafico da mobile.
+function lockChartScroll(chartId) {
+  const div = document.getElementById(chartId);
+  if (!div) return;
+  div.style.touchAction = "pan-y";
 }
 
 function darkLayout(yTitle, extra = {}) {
@@ -200,7 +214,8 @@ function darkLayout(yTitle, extra = {}) {
     yaxis: {
       showgrid: true, gridcolor: "#555555",
       tickfont: { color: "#ffffff" }, linecolor: "#ffffff",
-      title: { text: yTitle, font: { color: "#ffffff" } }
+      title: { text: yTitle, font: { color: "#ffffff" } },
+      fixedrange: true // blocca zoom/pan verticale: non serve e crea conflitti con lo scroll della pagina su mobile
     },
     legend: { orientation: "h", y: 1.15 }
   }, extra);
@@ -350,7 +365,8 @@ function renderWeeklyChart(feedsMese, now) {
     margin: isMobile
       ? { l: 40, r: 40, t: 70, b: 20 }
       : { l: 55, r: 55, t: 30, b: 25 },
-    xaxis: { tickfont: { color: "#ffffff", size: isMobile ? 9 : 12 }, linecolor: "#ffffff" },
+    dragmode: false, // asse X categorico (giorni): il trascinamento non ha senso qui
+    xaxis: { tickfont: { color: "#ffffff", size: isMobile ? 9 : 12 }, linecolor: "#ffffff", fixedrange: true },
     yaxis2: {
       overlaying: "y",
       side: "right",
@@ -369,6 +385,7 @@ function renderWeeklyChart(feedsMese, now) {
   layoutSettimanale.yaxis.rangemode = "tozero";
 
   Plotly.newPlot("chart-weekly", [tracePrese, traceClima, traceUtenze, traceCosto], layoutSettimanale, { displayModeBar: false });
+  lockChartScroll("chart-weekly");
 
   const totKwh = totaleKwhGiorno.reduce((a, b) => a + b, 0);
   const totCosto = costoValues.reduce((a, b) => a + b, 0);
@@ -430,8 +447,15 @@ function renderRiepilogoCosti(feedsMese, now) {
   Plotly.newPlot("chart-costi", [traceOggi, traceMese], darkLayout("€", {
     barmode: "group",
     margin: { l: 40, r: 5, t: 5, b: 25 },
+    dragmode: false, // asse X categorico (Prese/Clima/Utenze/Fissi): il trascinamento non ha senso qui
+    xaxis: {
+      showgrid: true, gridcolor: "#555555",
+      tickfont: { color: "#ffffff" }, linecolor: "#ffffff",
+      fixedrange: true
+    },
     legend: { orientation: "h", y: 1.2 }
   }), { displayModeBar: false });
+  lockChartScroll("chart-costi");
 }
 
 // ========================
