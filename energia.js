@@ -212,7 +212,14 @@ function setupWeeklyDragHandler(chartId) {
   const div = document.getElementById(chartId);
   if (!div) return;
 
+  const DEAD_ZONE = 8;     // px di movimento prima di capire se il gesto è orizzontale o verticale
+  const MIN_DRAG = 20;     // px minimi per considerare un trascinamento valido (evita click accidentali)
+
   let startX = null;
+  let startY = null;
+  let axisLocked = null;   // "x" (trasciniamo il grafico) | "y" (lasciamo scorrere la pagina) | null
+
+  div.style.cursor = "ew-resize"; // freccia orizzontale: qui si trascina a sinistra/destra, non su/giù
 
   const shiftWeekly = (deltaX) => {
     const rect = div.getBoundingClientRect();
@@ -230,28 +237,62 @@ function setupWeeklyDragHandler(chartId) {
     refreshWeeklyAndCosti();
   };
 
-  div.addEventListener("mousedown", e => { startX = e.clientX; });
-  window.addEventListener("mouseup", e => {
-    if (startX === null) return;
-    const deltaX = e.clientX - startX;
+  const reset = () => {
     startX = null;
-    if (Math.abs(deltaX) < 20) return; // soglia minima per non scattare con un semplice click
-    shiftWeekly(deltaX);
-  });
+    startY = null;
+    axisLocked = null;
+    div.style.cursor = "ew-resize";
+  };
+
+  const onMove = (clientX, clientY) => {
+    if (startX === null) return;
+    const dx = clientX - startX;
+    const dy = clientY - startY;
+
+    if (!axisLocked) {
+      if (Math.abs(dx) < DEAD_ZONE && Math.abs(dy) < DEAD_ZONE) return; // troppo presto, aspetta
+      // Decide una sola volta, in base al gesto iniziale, se è un trascinamento
+      // orizzontale (grafico) o verticale (scroll della pagina, che lasciamo fare al browser).
+      axisLocked = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+      if (axisLocked === "x") {
+        div.style.transition = "none";
+        div.style.cursor = "grabbing";
+      }
+    }
+
+    if (axisLocked === "x") {
+      div.style.transform = `translateX(${dx}px)`; // il grafico segue il dito in tempo reale
+    }
+  };
+
+  const onEnd = (clientX) => {
+    if (startX === null) return;
+    const dx = clientX - startX;
+    const wasHorizontalDrag = axisLocked === "x";
+    reset();
+
+    if (wasHorizontalDrag) {
+      div.style.transition = "transform 0.18s ease-out";
+      div.style.transform = "translateX(0px)";
+      if (Math.abs(dx) >= MIN_DRAG) shiftWeekly(dx);
+    }
+  };
+
+  div.addEventListener("mousedown", e => { startX = e.clientX; startY = e.clientY; });
+  window.addEventListener("mousemove", e => onMove(e.clientX, e.clientY));
+  window.addEventListener("mouseup", e => onEnd(e.clientX));
 
   div.addEventListener("touchstart", e => {
     startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
   }, { passive: true });
 
-  div.addEventListener("touchend", e => {
-    if (startX === null) return;
-    const deltaX = e.changedTouches[0].clientX - startX;
-    startX = null;
-    if (Math.abs(deltaX) < 20) return;
-    shiftWeekly(deltaX);
+  div.addEventListener("touchmove", e => {
+    onMove(e.touches[0].clientX, e.touches[0].clientY);
   }, { passive: true });
 
-  div.addEventListener("touchcancel", () => { startX = null; }, { passive: true });
+  div.addEventListener("touchend", e => onEnd(e.changedTouches[0].clientX), { passive: true });
+  div.addEventListener("touchcancel", reset, { passive: true });
 }
 
 function darkLayout(yTitle, extra = {}) {
