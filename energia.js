@@ -69,6 +69,7 @@ function getTariffaPerData(date) {
 
 let currentRange = "1d";
 let currentEndTime = new Date();
+let weeklyEndTime = new Date(); // fine finestra (7 giorni) del grafico "Consumi ultimi 7 giorni", spostabile trascinando
 let isDragging = false;
 
 function fmtTime(date) {
@@ -164,6 +165,7 @@ function setupRangeButtons() {
     btn.addEventListener("click", () => {
       currentRange = r;
       currentEndTime = new Date();
+      weeklyEndTime = new Date();
       btns.forEach(b => b.classList.toggle("active", b.dataset.range === r));
       loadAndRender();
     });
@@ -190,13 +192,66 @@ function setupPanHandler(chartId) {
   });
 }
 
-// Per i grafici NON temporali (barre categoriche: settimanale, riepilogo costi)
-// non ha senso alcun trascinamento: blocchiamo tutto e lasciamo scorrere la pagina
-// liberamente in entrambe le direzioni quando si tocca il grafico da mobile.
+// Per il grafico "Riepilogo costi" (barre categoriche, non ha una finestra temporale
+// continua) non ha senso alcun trascinamento: blocchiamo tutto e lasciamo scorrere la
+// pagina liberamente in entrambe le direzioni quando si tocca il grafico da mobile.
 function lockChartScroll(chartId) {
   const div = document.getElementById(chartId);
   if (!div) return;
   div.style.touchAction = "pan-y";
+}
+
+// ========================
+// TRASCINAMENTO ORIZZONTALE - GRAFICO "CONSUMI ULTIMI 7 GIORNI"
+// ========================
+// Essendo un grafico a barre con asse X categorico (etichette giorno), non può
+// usare il dragmode "pan" nativo di Plotly come i grafici a linee temporali.
+// Misuriamo quindi noi lo spostamento orizzontale del gesto (mouse o touch) e,
+// al rilascio, spostiamo la finestra di 7 giorni indietro/avanti nel tempo.
+function setupWeeklyDragHandler(chartId) {
+  const div = document.getElementById(chartId);
+  if (!div) return;
+
+  let startX = null;
+
+  const shiftWeekly = (deltaX) => {
+    const rect = div.getBoundingClientRect();
+    if (!rect.width) return;
+    const dayWidth = rect.width / 7; // 7 giorni visibili nel grafico
+    const daysShift = Math.round(deltaX / dayWidth);
+    if (!daysShift) return;
+
+    // Trascinare verso destra (deltaX > 0) fa scorrere la vista indietro nel tempo,
+    // come "tirare" dati più vecchi verso lo schermo.
+    let newEnd = new Date(weeklyEndTime.getTime() - daysShift * 24 * 3600 * 1000);
+    const oggi = new Date();
+    if (newEnd > oggi) newEnd = oggi; // non si può andare oltre il presente
+    weeklyEndTime = newEnd;
+    refreshWeeklyAndCosti();
+  };
+
+  div.addEventListener("mousedown", e => { startX = e.clientX; });
+  window.addEventListener("mouseup", e => {
+    if (startX === null) return;
+    const deltaX = e.clientX - startX;
+    startX = null;
+    if (Math.abs(deltaX) < 20) return; // soglia minima per non scattare con un semplice click
+    shiftWeekly(deltaX);
+  });
+
+  div.addEventListener("touchstart", e => {
+    startX = e.touches[0].clientX;
+  }, { passive: true });
+
+  div.addEventListener("touchend", e => {
+    if (startX === null) return;
+    const deltaX = e.changedTouches[0].clientX - startX;
+    startX = null;
+    if (Math.abs(deltaX) < 20) return;
+    shiftWeekly(deltaX);
+  }, { passive: true });
+
+  div.addEventListener("touchcancel", () => { startX = null; }, { passive: true });
 }
 
 function darkLayout(yTitle, extra = {}) {
@@ -280,8 +335,11 @@ function sommaKwhPerCanale(feedsInRange) {
   return kwh;
 }
 
-async function fetchFeedsMese(now) {
-  const giorniDaCoprire = now.getDate() + 1;
+async function fetchFeedsMese(now, weeklyEndTime = now) {
+  const msPerDay = 24 * 3600 * 1000;
+  const giorniMese = now.getDate() + 1; // giorni dal primo del mese ad oggi, per il riepilogo costi
+  const giorniIndietroSettimana = Math.max(0, Math.ceil((now - weeklyEndTime) / msPerDay));
+  const giorniDaCoprire = Math.max(giorniMese, giorniIndietroSettimana + 8); // +8: finestra di 7 giorni + margine
   const maxResults = Math.min(8000, giorniDaCoprire * 300);
   return fetchChannelFeeds(ENERGY_CHANNEL_ID, ENERGY_READ_KEY, maxResults);
 }
@@ -365,7 +423,7 @@ function renderWeeklyChart(feedsMese, now) {
     margin: isMobile
       ? { l: 40, r: 40, t: 70, b: 20 }
       : { l: 55, r: 55, t: 30, b: 25 },
-    dragmode: false, // asse X categorico (giorni): il trascinamento non ha senso qui
+    dragmode: false, // disabilita zoom/riquadro nativo di Plotly: il trascinamento è gestito a parte (vedi setupWeeklyDragHandler)
     xaxis: { tickfont: { color: "#ffffff", size: isMobile ? 9 : 12 }, linecolor: "#ffffff", fixedrange: true },
     yaxis2: {
       overlaying: "y",
@@ -514,10 +572,7 @@ async function loadAndRender() {
       ? `Ultimo dato: ${fmtDateTime(filtered[filtered.length - 1].time)}`
       : "Nessun dato nell'intervallo selezionato";
 
-    const now = new Date();
-    const feedsMese = await fetchFeedsMese(now);
-    renderWeeklyChart(feedsMese, now);
-    renderRiepilogoCosti(feedsMese, now);
+    await refreshWeeklyAndCosti();
 
   } catch (err) {
     status.textContent = "Errore caricamento dati: " + err.message;
@@ -525,9 +580,19 @@ async function loadAndRender() {
   }
 }
 
+// Ridisegna solo "Consumi ultimi 7 giorni" e "Riepilogo costi" (usati dopo il
+// trascinamento del grafico settimanale, senza dover ricaricare tutto il resto).
+async function refreshWeeklyAndCosti() {
+  const now = new Date();
+  const feedsMese = await fetchFeedsMese(now, weeklyEndTime);
+  renderWeeklyChart(feedsMese, weeklyEndTime);
+  renderRiepilogoCosti(feedsMese, now);
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   startClock();
   setupRangeButtons();
+  setupWeeklyDragHandler("chart-weekly");
   TARIFFA_STORICO = await loadTariffaStorico();
   loadAndRender();
   setInterval(loadAndRender, 60 * 1000);
