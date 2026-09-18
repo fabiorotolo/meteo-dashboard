@@ -244,25 +244,17 @@ function setupWeeklyDragHandler(chartId) {
     div.style.cursor = "ew-resize";
   };
 
+  // Determina solo la DIREZIONE del gesto (una volta sola), senza spostare
+  // visivamente il grafico: gli assi restano fermi, l'aggiornamento avviene
+  // solo al rilascio, come nella versione precedente.
   const onMove = (clientX, clientY) => {
-    if (startX === null) return;
+    if (startX === null || axisLocked) return;
     const dx = clientX - startX;
     const dy = clientY - startY;
+    if (Math.abs(dx) < DEAD_ZONE && Math.abs(dy) < DEAD_ZONE) return; // troppo presto, aspetta
 
-    if (!axisLocked) {
-      if (Math.abs(dx) < DEAD_ZONE && Math.abs(dy) < DEAD_ZONE) return; // troppo presto, aspetta
-      // Decide una sola volta, in base al gesto iniziale, se è un trascinamento
-      // orizzontale (grafico) o verticale (scroll della pagina, che lasciamo fare al browser).
-      axisLocked = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
-      if (axisLocked === "x") {
-        div.style.transition = "none";
-        div.style.cursor = "grabbing";
-      }
-    }
-
-    if (axisLocked === "x") {
-      div.style.transform = `translateX(${dx}px)`; // il grafico segue il dito in tempo reale
-    }
+    axisLocked = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+    if (axisLocked === "x") div.style.cursor = "grabbing";
   };
 
   const onEnd = (clientX) => {
@@ -270,12 +262,7 @@ function setupWeeklyDragHandler(chartId) {
     const dx = clientX - startX;
     const wasHorizontalDrag = axisLocked === "x";
     reset();
-
-    if (wasHorizontalDrag) {
-      div.style.transition = "transform 0.18s ease-out";
-      div.style.transform = "translateX(0px)";
-      if (Math.abs(dx) >= MIN_DRAG) shiftWeekly(dx);
-    }
+    if (wasHorizontalDrag && Math.abs(dx) >= MIN_DRAG) shiftWeekly(dx);
   };
 
   div.addEventListener("mousedown", e => { startX = e.clientX; startY = e.clientY; });
