@@ -632,8 +632,8 @@ function updateForecast() {
 // ASTRONOMIA (copiato da main.js)
 // ========================
 
-const LAT = 42.4626;
-const LON = 14.2136;
+const LAT = 42.46;   // arrotondato (~1 km): basta per alba, tramonto e luna
+const LON = 14.21;
 
 function calculateMoonPhase() {
   const now = new Date();

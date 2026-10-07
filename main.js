@@ -972,8 +972,8 @@ async function loadAndRender() {
 // DATI ASTRONOMICI (FASE LUNARE E POSIZIONE SOLE)
 // ========================
 
-const LAT = 42.120333;
-const LON = 14.401111;
+const LAT = 42.12;   // arrotondato (~1 km): basta per alba, tramonto e luna
+const LON = 14.40;
 
 function calculateMoonPhase(date = new Date()) {
   let year = date.getFullYear();
