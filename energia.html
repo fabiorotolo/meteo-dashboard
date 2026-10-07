@@ -230,6 +230,47 @@ body {
 }
 
 /* ================================
+   STORICO MESI (finestra a comparsa)
+   ================================ */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 999;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.modal-overlay.visible { display: flex; }
+
+.modal-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-panel);
+  border-radius: 10px;
+  padding: 16px;
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-soft);
+}
+
+.modal-stato { font-size: 12px; color: var(--text-muted); min-height: 16px; }
+
+/* ================================
    SMARTPHONE VERTICALE - stesso pattern di index.html
    ================================ */
 @media screen and (orientation: portrait) and (max-width: 650px) {
@@ -357,6 +398,7 @@ body {
       <div class="panel">
         <div class="panel-header">
           <span class="panel-title">Riepilogo costi (stima)</span>
+          <button class="btn-small" id="btn-storico-mesi" type="button">📅 Mesi</button>
         </div>
         <div class="riepilogo-body">
           <div class="riepilogo-totali-row">
@@ -417,6 +459,19 @@ body {
       <div class="footer-right">
         <button class="btn-small" type="button" onclick="window.location.href='index.html'">⟵ Meteo</button>
       </div>
+    </div>
+  </div>
+
+  <!-- STORICO MESI: finestra a comparsa, non tocca la griglia 2x2 -->
+  <div class="modal-overlay" id="modal-storico">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="panel-title">Storico ultimi 6 mesi</span>
+        <button class="btn-small" id="btn-chiudi-storico" type="button">✕ Chiudi</button>
+      </div>
+      <div class="modal-stato" id="storico-stato"></div>
+      <div id="chart-storico-mesi" style="height:360px;"></div>
+      <div class="riepilogo-note">Stima indicativa, calcolata dai dati ThingSpeak di ciascun mese. I mesi senza dati non sono mostrati.</div>
     </div>
   </div>
 

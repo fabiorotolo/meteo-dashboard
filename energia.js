@@ -617,10 +617,175 @@ async function refreshWeeklyAndCosti() {
   renderRiepilogoCosti(feedsMese, now);
 }
 
+// ========================
+// STORICO MESI (finestra a comparsa, non tocca il layout principale)
+// ========================
+// Per ogni mese si chiede a ThingSpeak un intervallo di date preciso (start/end),
+// solo il campo casa_wh_delta. ThingSpeak restituisce al massimo 8000 punti per
+// chiamata (un mese a 5 minuti ne ha ~8640): per non perdere gli ultimi giorni
+// ogni mese viene letto a blocchi di STORICO_GIORNI_BLOCCO giorni.
+// I mesi gia' conclusi vengono tenuti in memoria: riaprendo la finestra non si
+// rileggono, si aggiorna solo il mese in corso.
+
+const STORICO_MESI = 6;
+const STORICO_GIORNI_BLOCCO = 10;
+const storicoCacheMesi = {}; // "AAAA-MM" -> { kwh, giorniConDati }
+let storicoInCaricamento = false;
+
+function fmtThingSpeakUTC(d) {
+  const pad = n => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}%20` +
+         `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
+}
+
+async function fetchCampoRange(fieldNum, startDate, endDate) {
+  const url =
+    `https://api.thingspeak.com/channels/${ENERGY_CHANNEL_ID}/fields/${fieldNum}.json` +
+    `?api_key=${ENERGY_READ_KEY}&start=${fmtThingSpeakUTC(startDate)}&end=${fmtThingSpeakUTC(endDate)}&results=8000`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Errore HTTP " + res.status);
+  const data = await res.json();
+  return (data.feeds || []).map(f => ({ time: new Date(f.created_at), raw: f }));
+}
+
+// kWh del mese e numero di giorni che hanno almeno un dato valido.
+// I giorni con dati servono per la quota fissa: cosi' un mese iniziato a meta'
+// (installazione) o quello in corso non vengono gonfiati con giorni senza misure.
+async function consumoMese(inizioMese, fineRange) {
+  const field = ENERGY_FIELDS["casa_wh_delta"];
+  const msBlocco = STORICO_GIORNI_BLOCCO * 24 * 3600 * 1000;
+  let kwh = 0;
+  const giorni = new Set();
+
+  for (let t = inizioMese.getTime(); t < fineRange.getTime(); t += msBlocco) {
+    const da = new Date(t);
+    const a = new Date(Math.min(t + msBlocco, fineRange.getTime()));
+    const feeds = await fetchCampoRange(field, da, a);
+    for (const f of feeds) {
+      if (f.time >= a && a < fineRange) continue; // il punto sul confine appartiene al blocco successivo
+      const v = parseFloat(f.raw["field" + field]);
+      if (!isValid(v, ENERGY_LIMIT)) continue;
+      kwh += v / 1000;
+      giorni.add(f.time.getDate());
+    }
+  }
+  return { kwh, giorniConDati: giorni.size };
+}
+
+function fmtMonthLabel(date) {
+  const mesi = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
+  return `${mesi[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+async function renderStoricoMesi() {
+  if (storicoInCaricamento) return;
+  storicoInCaricamento = true;
+  const stato = document.getElementById("storico-stato");
+  const now = new Date();
+  const labels = [], kwhValues = [], costoValues = [];
+
+  try {
+    for (let i = STORICO_MESI - 1; i >= 0; i--) {
+      const inizioMese = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const inizioMeseSucc = new Date(inizioMese.getFullYear(), inizioMese.getMonth() + 1, 1);
+      const concluso = inizioMeseSucc <= now;
+      const chiave = `${inizioMese.getFullYear()}-${inizioMese.getMonth() + 1}`;
+
+      stato.textContent = `Caricamento ${fmtMonthLabel(inizioMese)}…`;
+      let dati = concluso ? storicoCacheMesi[chiave] : null;
+      if (!dati) {
+        dati = await consumoMese(inizioMese, concluso ? inizioMeseSucc : now);
+        if (concluso) storicoCacheMesi[chiave] = dati;
+      }
+      if (dati.giorniConDati === 0) continue; // mese senza misure (es. prima dell'installazione)
+
+      const costo = costoEnergiaSenzaFissi(dati.kwh, inizioMese) +
+                    costoFissoGiorno(inizioMese) * dati.giorniConDati;
+
+      labels.push(fmtMonthLabel(inizioMese) + (concluso ? "" : " *"));
+      kwhValues.push(dati.kwh);
+      costoValues.push(costo);
+    }
+
+    if (!labels.length) {
+      stato.textContent = "Nessun dato negli ultimi " + STORICO_MESI + " mesi.";
+      Plotly.purge("chart-storico-mesi");
+      return;
+    }
+
+    const traceKwh = {
+      x: labels, y: kwhValues,
+      name: "Consumo (kWh)", type: "bar", offsetgroup: "kwh",
+      marker: { color: "#66ff99" },
+      text: kwhValues.map(v => v.toFixed(1) + " kWh"),
+      textposition: "outside",
+      textfont: { color: "#ffffff", size: 10 },
+      cliponaxis: false
+    };
+    const traceCosto = {
+      x: labels, y: costoValues,
+      name: "Costo (€)", type: "bar", offsetgroup: "costo",
+      yaxis: "y2",
+      marker: { color: "#3d7cff" },
+      text: costoValues.map(v => v.toFixed(2) + " €"),
+      textposition: "outside",
+      textfont: { color: "#ffffff", size: 10 },
+      cliponaxis: false
+    };
+
+    const layoutStorico = darkLayout("kWh", {
+      barmode: "group",
+      dragmode: false,
+      margin: { l: 55, r: 55, t: 40, b: 40 },
+      yaxis2: {
+        overlaying: "y",
+        side: "right",
+        showgrid: false,
+        rangemode: "tozero",
+        fixedrange: true,
+        tickfont: { color: "#ffffff" },
+        linecolor: "#ffffff",
+        title: { text: "€", font: { color: "#ffffff" } }
+      }
+    });
+    // asse X a categorie (nomi dei mesi): il formato orario di darkLayout qui non serve
+    layoutStorico.xaxis = Object.assign({}, layoutStorico.xaxis, { type: "category", tickformat: "", fixedrange: true, showgrid: false });
+    layoutStorico.yaxis.rangemode = "tozero";
+
+    Plotly.newPlot("chart-storico-mesi", [traceKwh, traceCosto], layoutStorico, { displayModeBar: false, responsive: true });
+    const meseInCorso = labels[labels.length - 1].endsWith("*");
+    stato.textContent = meseInCorso ? "* mese in corso (fino a oggi)" : "";
+  } catch (err) {
+    stato.textContent = "Errore caricamento storico: " + err.message;
+    console.error(err);
+  } finally {
+    storicoInCaricamento = false;
+  }
+}
+
+function apriModalStorico() {
+  document.getElementById("modal-storico").classList.add("visible");
+  renderStoricoMesi();
+}
+
+function chiudiModalStorico() {
+  document.getElementById("modal-storico").classList.remove("visible");
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   startClock();
   setupRangeButtons();
   setupWeeklyDragHandler("chart-weekly");
+
+  document.getElementById("btn-storico-mesi").addEventListener("click", apriModalStorico);
+  document.getElementById("btn-chiudi-storico").addEventListener("click", chiudiModalStorico);
+  document.getElementById("modal-storico").addEventListener("click", e => {
+    if (e.target.id === "modal-storico") chiudiModalStorico(); // clic sullo sfondo scuro
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") chiudiModalStorico();
+  });
+
   TARIFFA_STORICO = await loadTariffaStorico();
   loadAndRender();
   setInterval(loadAndRender, 60 * 1000);
