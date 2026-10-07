@@ -3,7 +3,7 @@
 // ========================
 // Le Read API Key ThingSpeak non stanno nel codice in chiaro: sono cifrate in chiavi-cifrate.js
 // e si sbloccano con la password delle dashboard (cassaforte.js), una volta per dispositivo.
-// È la stessa password di barca-dashboard (da inserire una volta anche lì).
+// La stessa password sblocca anche barca-dashboard (stesso sito fabiorotolo.github.io).
 // Ogni pagina dichiara le chiavi che le servono: <script src="accesso.js" data-chiavi="int,ext">
 
 const ACCESSO_RICHIESTE = ((document.currentScript && document.currentScript.dataset.chiavi) || "int,ext")
