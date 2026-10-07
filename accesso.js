@@ -28,7 +28,7 @@ window.fetch = async function (input, init) {
     }
     if (errata) {
       try { localStorage.removeItem(CASSAFORTE_METEO); } catch (e) {}
-      cassaforteForm("Una chiave ThingSpeak salvata non funziona più (rigenerata?). Inserisci la password; se il problema resta, aggiorna chiavi-cifrate.js con cifra-chiavi.html.");
+      cassaforteForm("Una chiave ThingSpeak salvata non funziona più (rigenerata?). Inserisci la password; se il problema resta, le chiavi sono state rigenerate: <a href='https://fabiorotolo.github.io/barca-dashboard/cifra-chiavi.html' style='color:#6aa6ff'>aggiorna le chiavi</a>.");
     }
   }
   return res;
