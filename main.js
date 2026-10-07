@@ -4,7 +4,7 @@
 
 // Canale interno (meteo_data)
 const INTERNAL_CHANNEL_ID = 3152991;
-const INTERNAL_READ_KEY   = "3I7MYYDZS4IKL3YJ";
+const INTERNAL_READ_KEY   = meteoKey("int");
 
 const INTERNAL_FIELDS = {
   temp: 4,   // temp aria Si7021 interna
@@ -15,7 +15,7 @@ const INTERNAL_FIELDS = {
 
 // Canale esterno (ESP32_01)
 const EXTERNAL_CHANNEL_ID = 3181129;
-const EXTERNAL_READ_KEY   = "7JYH3JOONPFPNQNE";
+const EXTERNAL_READ_KEY   = meteoKey("ext");
 
 const EXTERNAL_FIELDS = {
   hum: 1,    // umidità esterna

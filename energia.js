@@ -3,7 +3,7 @@
 // ========================
 
 const ENERGY_CHANNEL_ID = 3489445;
-const ENERGY_READ_KEY = "L3NRPAO60VP1UM4Z";
+const ENERGY_READ_KEY = meteoKey("energia");
 
 const ENERGY_FIELDS = {
   casa_w: 1, casa_wh_delta: 2,

@@ -3,7 +3,7 @@
 // ========================
 
 const INTERNAL_CHANNEL_ID = 3152991;
-const INTERNAL_READ_KEY   = "3I7MYYDZS4IKL3YJ";
+const INTERNAL_READ_KEY   = meteoKey("int");
 
 const INTERNAL_FIELDS = {
   temp: 4,
@@ -13,7 +13,7 @@ const INTERNAL_FIELDS = {
 };
 
 const EXTERNAL_CHANNEL_ID = 3181129;
-const EXTERNAL_READ_KEY   = "7JYH3JOONPFPNQNE";
+const EXTERNAL_READ_KEY   = meteoKey("ext");
 
 const EXTERNAL_FIELDS = {
   hum: 1,
