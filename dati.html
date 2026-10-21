@@ -809,12 +809,14 @@
           const press   = parseFloat(raw["field" + INTERNAL_FIELDS.press]);
           const cpu     = parseFloat(raw["field" + INTERNAL_FIELDS.cpu]);
 
-          // match EXT entro 5 minuti
+          // match EXT entro 2,5 minuti (meta' dell'intervallo di 5 minuti):
+          // con 5 minuti, se mancava il dato EXT di quell'orario veniva preso
+          // quello della riga vicina e compariva due volte (21/10/2026).
           let nearestExt = { tempExt: null, humExt: null };
           let minDelta = Infinity;
           extFiltered.forEach(e => {
             const dt = Math.abs(e.time - t);
-            if (dt < minDelta && dt <= 5 * 60 * 1000) {
+            if (dt < minDelta && dt < 2.5 * 60 * 1000) {
               minDelta = dt;
               const r = e.raw;
               const te = parseFloat(r["field" + EXTERNAL_FIELDS.temp]);

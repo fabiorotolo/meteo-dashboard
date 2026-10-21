@@ -58,17 +58,61 @@ function isValid(v, lim) {
   return Number.isFinite(v) && v >= lim.min && v <= lim.max;
 }
 
+// Buco nei dati: oltre questo intervallo tra due punti il grafico interrompe
+// la linea e il filtro anti-picchi non confronta piu' i due valori.
+const MAX_GAP_MS = 15 * 60 * 1000;
+
+// Quanti valori consecutivi scartati, ma coerenti tra loro, servono per
+// considerarli un cambiamento vero (e non un picco).
+const PICCO_CONFERME = 3;
+
+// Filtro anti-picchi. Scarta un punto se differisce troppo dall'ultimo
+// accettato, MA:
+//  - dopo un buco di dati (> MAX_GAP_MS) il confronto non si fa: in 3 ore
+//    l'umidita' puo' cambiare di 30 punti senza che sia un errore;
+//  - se arrivano PICCO_CONFERME valori di fila scartati ma coerenti tra loro,
+//    e' un cambiamento reale: vengono accettati. Prima un salto vero restava
+//    "bloccato" e tutti i valori successivi venivano scartati (21/10/2026,
+//    umidita' esterna sparita dal grafico dopo il riavvio dell'ESP32).
 function filterSpikes(points, maxDelta) {
   if (points.length < 2) return points;
   const clean = [points[0]];
+  let scartati = [];
   for (let i = 1; i < points.length; i++) {
-    const prev = clean[clean.length - 1].y;
-    const curr = points[i].y;
-    if (Math.abs(curr - prev) <= maxDelta) {
-      clean.push(points[i]);
+    const last = clean[clean.length - 1];
+    const curr = points[i];
+    const dopoBuco = (curr.x - last.x) > MAX_GAP_MS;
+    if (dopoBuco || Math.abs(curr.y - last.y) <= maxDelta) {
+      clean.push(curr);
+      scartati = [];
+      continue;
+    }
+    const coerente = !scartati.length ||
+      Math.abs(curr.y - scartati[scartati.length - 1].y) <= maxDelta;
+    scartati = coerente ? [...scartati, curr] : [curr];
+    if (scartati.length >= PICCO_CONFERME) {
+      clean.push(...scartati);
+      scartati = [];
     }
   }
   return clean;
+}
+
+// Per i grafici: inserisce un punto vuoto (y = null) dove manca un pezzo di
+// dati, cosi' Plotly interrompe la linea invece di unire i punti con una
+// retta. Da usare SOLO per x/y delle tracce, non per i calcoli di min/max.
+function conBuchi(points) {
+  const out = [];
+  for (let i = 0; i < points.length; i++) {
+    if (i > 0 && (points[i].x - points[i - 1].x) > MAX_GAP_MS) {
+      out.push({ x: new Date(points[i - 1].x.getTime() + 1000), y: null });
+    }
+    out.push(points[i]);
+  }
+  return {
+    x: out.map(p => p.x),
+    y: out.map(p => p.y)
+  };
 }
 
 function buildSeries(feeds, field, limits, deltaLimit) {
@@ -585,8 +629,7 @@ async function loadAndRender() {
     }
 
     const pressTrace = {
-      x: pressPoints.map(p => p.x),
-      y: pressPoints.map(p => p.y),
+      ...conBuchi(pressPoints),
       type: "scatter",
       mode: "lines",
       line: { color: "#00d4ff", width: 2.5 },
@@ -690,16 +733,14 @@ async function loadAndRender() {
     document.getElementById("temp-minmax").textContent = tempMinMaxText || "--";
 
     const tempIntTrace = {
-      x: tempIntPoints.map(p => p.x),
-      y: tempIntPoints.map(p => p.y),
+      ...conBuchi(tempIntPoints),
       mode: "lines",
       name: "Temp INT",
       line: { width: 2, color: "#ff6666" }
     };
 
     const tempExtTrace = {
-      x: tempExtPoints.map(p => p.x),
-      y: tempExtPoints.map(p => p.y),
+      ...conBuchi(tempExtPoints),
       mode: "lines",
       name: "Temp EXT",
       line: { width: 2, color: "#66aaff" }
@@ -825,16 +866,14 @@ async function loadAndRender() {
     document.getElementById("hum-minmax").textContent = humMinMaxText || "--";
 
     const humIntTrace = {
-      x: humIntPoints.map(p => p.x),
-      y: humIntPoints.map(p => p.y),
+      ...conBuchi(humIntPoints),
       mode: "lines",
       name: "UR INT",
       line: { width: 2, color: "#ff6666" }
     };
 
     const humExtTrace = {
-      x: humExtPoints.map(p => p.x),
-      y: humExtPoints.map(p => p.y),
+      ...conBuchi(humExtPoints),
       mode: "lines",
       name: "UR EXT",
       line: { width: 2, color: "#66aaff" }
