@@ -618,7 +618,7 @@ async function loadAndRender() {
         const el = document.getElementById("stat-temp-int");
         el.innerHTML = tempInt.toFixed(2) + ' <span class="unit-small">°C</span>';
       }
-      if (!isNaN(humInt)) document.getElementById("debug-rh").textContent = humInt.toFixed(1) + " %";
+      // "debug-rh" (Tendenza meteo) mostra l'umidita' ESTERNA usata dalla previsione: la scrive il blocco della previsione
       if (!isNaN(pressInt)) {
         const el = document.getElementById("stat-press");
         el.innerHTML = pressInt.toFixed(1) + ' <span class="unit-small">hPa</span>';
