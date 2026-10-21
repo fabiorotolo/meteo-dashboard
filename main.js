@@ -115,6 +115,44 @@ function conBuchi(points) {
   };
 }
 
+// Raccordo STIMATO nei buchi di dati: curva morbida (Hermite monotona,
+// Fritsch-Carlson) che parte con l'andamento prima del buco e arriva con
+// quello dopo, senza mai uscire dall'intervallo tra i due valori (niente
+// massimi/minimi inventati). Disegnata tratteggiata e chiara: NON sono misure.
+// Non entra nei calcoli di min/max ne' nel tooltip.
+function raccordiBuchi(points, colore) {
+  const tracce = [];
+  for (let i = 1; i < points.length; i++) {
+    const p0 = points[i - 1], p1 = points[i];
+    const h = (p1.x - p0.x) / 3600000;               // ore
+    if (h * 3600000 <= MAX_GAP_MS) continue;
+    const d = (p1.y - p0.y) / h;                      // pendenza media nel buco
+    const pend = (a, b) => (b.y - a.y) / ((b.x - a.x) / 3600000);
+    let m0 = i >= 2 && (p0.x - points[i - 2].x) <= MAX_GAP_MS ? pend(points[i - 2], p0) : d;
+    let m1 = i + 1 < points.length && (points[i + 1].x - p1.x) <= MAX_GAP_MS ? pend(p1, points[i + 1]) : d;
+    if (d === 0) { m0 = 0; m1 = 0; }
+    else {
+      if (Math.sign(m0) !== Math.sign(d)) m0 = 0;
+      if (Math.sign(m1) !== Math.sign(d)) m1 = 0;
+      const a = m0 / d, b = m1 / d, s = a * a + b * b;
+      if (s > 9) { const tau = 3 / Math.sqrt(s); m0 = tau * a * d; m1 = tau * b * d; }
+    }
+    const xs = [], ys = [], N = 24;
+    for (let k = 0; k <= N; k++) {
+      const t = k / N, t2 = t * t, t3 = t2 * t;
+      const y = (2 * t3 - 3 * t2 + 1) * p0.y + (t3 - 2 * t2 + t) * h * m0 +
+                (-2 * t3 + 3 * t2) * p1.y + (t3 - t2) * h * m1;
+      xs.push(new Date(p0.x.getTime() + t * (p1.x - p0.x)));
+      ys.push(y);
+    }
+    tracce.push({
+      x: xs, y: ys, mode: "lines", showlegend: false, hoverinfo: "skip",
+      line: { width: 1.5, color: colore, dash: "dot" }, opacity: 0.55
+    });
+  }
+  return tracce;
+}
+
 function buildSeries(feeds, field, limits, deltaLimit) {
   const raw = feeds
     .map(f => {
@@ -639,7 +677,7 @@ async function loadAndRender() {
       hovertemplate: "%{y:.1f} hPa<extra></extra>"
     };
 
-    const pressTraces = [pressTrace];
+    const pressTraces = [pressTrace, ...raccordiBuchi(pressPoints, "#00d4ff")];
     
     if (minPressPoint) {
       pressTraces.push({
@@ -746,7 +784,8 @@ async function loadAndRender() {
       line: { width: 2, color: "#66aaff" }
     };
 
-    const tempTraces = [tempIntTrace, tempExtTrace];
+    const tempTraces = [tempIntTrace, tempExtTrace,
+      ...raccordiBuchi(tempIntPoints, "#ff6666"), ...raccordiBuchi(tempExtPoints, "#66aaff")];
     
     if (minTempIntPoint) {
       tempTraces.push({
@@ -879,7 +918,8 @@ async function loadAndRender() {
       line: { width: 2, color: "#66aaff" }
     };
 
-    const humTraces = [humIntTrace, humExtTrace];
+    const humTraces = [humIntTrace, humExtTrace,
+      ...raccordiBuchi(humIntPoints, "#ff6666"), ...raccordiBuchi(humExtPoints, "#66aaff")];
     
     if (minHumIntPoint) {
       humTraces.push({
